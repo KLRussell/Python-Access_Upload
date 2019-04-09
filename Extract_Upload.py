@@ -102,7 +102,13 @@ class AccdbHandle:
             return False
 
     def validate(self, table):
+        self.accdb_cols = None
+        self.from_cols = None
+        self.to_cols = None
+        self.to_table = None
+        self.sql_cols = None
         self.get_accdb_cols(table)
+
         configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
 
         if not configs:
@@ -222,9 +228,11 @@ class AccdbHandle:
             self.asql.upload(myresults, self.to_table, index=False, index_label=None)
             Global_Objs['Event_Log'].write_log('Data successfully uploaded from table {0} to sql table {1}'
                                                .format(table, self.to_table))
+            return True
         else:
             Global_Objs['Event_Log'].write_log('Failed to grab data from access table {0}. No update made'
                                                .format(table), 'error')
+            return False
 
     def close_asql(self):
         self.asql.close()
@@ -244,6 +252,7 @@ def check_for_updates():
 
 def process_updates(files):
     for file in files:
+        processed = False
         Global_Objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
         myobj = AccdbHandle(file)
 
@@ -252,14 +261,15 @@ def process_updates(files):
         for table in myobj.get_accdb_tables():
             Global_Objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
             if myobj.validate(table):
-                myobj.process(table)
-                filename = os.path.basename(file)
-                os.rename(file, os.path.join(ProcessedDir,
-                                             datetime.datetime.now().__format__("%Y%m%d") + os.path.split(filename)[0]
-                                             + os.path.split(filename)[1]))
+                processed = myobj.process(table)
 
         myobj.close_asql()
         Global_Objs['SQL'].close()
+
+        filename = os.path.basename(file)
+        os.rename(file, os.path.join(ProcessedDir,
+                                     datetime.datetime.now().__format__("%Y%m%d") + '_' + os.path.split(filename)[0]
+                                     + os.path.split(filename)[1]))
 
 
 if __name__ == '__main__':
