@@ -217,7 +217,7 @@ class AccdbHandle:
                                            .format(table, self.to_table))
 
         myresults = Global_Objs['SQL'].query('''
-            SELECT top 100
+            SELECT
                 [{0}]
             
             FROM [{1}]
