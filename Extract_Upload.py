@@ -3,10 +3,11 @@ from Global import SQLHandle
 
 import os
 import pathlib as pl
-import pandas as pd
+import datetime
 
 CurrDir = os.path.dirname(os.path.abspath(__file__))
 AccdbDir = os.path.join(CurrDir, "01_Process")
+ProcessedDir = os.path.join(CurrDir, "02_Processed")
 Global_Objs = grabobjs(CurrDir)
 
 
@@ -152,8 +153,8 @@ class AccdbHandle:
         myanswer = None
 
         while not myanswer:
-            print('There is no configuration for table ({0}) in file ({1}). Would you like to add configuration? (yes, no)'.format(table,
-                                                                                                                         os.path.basename(self.file)))
+            print('There is no configuration for table ({0}) in file ({1}). Would you like to add configuration? (yes, no)'
+                  .format(table, os.path.basename(self.file)))
             myanswer = input()
 
             if myanswer.lower() not in ['yes', 'no']:
@@ -208,6 +209,14 @@ class AccdbHandle:
         if not myresults.empty:
             myresults.columns = self.to_cols
             self.asql.upload(myresults, self.to_table)
+            Global_Objs['Event_Log'].write_log('Data successfully uploaded from table {0} to sql table {1}'
+                                               .format(table, self.to_table))
+        else:
+            Global_Objs['Event_Log'].write_log('Failed to grab data from access table {0}. No update made'
+                                               .format(table), 'error')
+
+    def close_asql(self):
+        self.asql.close()
 
 
 def check_for_updates():
@@ -224,20 +233,30 @@ def check_for_updates():
 
 def process_updates(files):
     for file in files:
+        Global_Objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
         myobj = AccdbHandle(file)
 
         Global_Objs['SQL'].connect(accdb_file=file)
 
         for table in myobj.get_accdb_tables():
+            Global_Objs['Event_Log'].write_log('Validating table {0}'.format(table))
             if myobj.validate(table):
                 myobj.process(table)
+                filename = os.path.basename(file)
+                os.rename(file, os.path.join(ProcessedDir,
+                                             datetime.datetime.now().__format__("%Y%m%d") + os.path.split(filename)[0]
+                                             + os.path.split(filename)[1]))
 
+        myobj.close_asql()
         Global_Objs['SQL'].close()
 
 
 if __name__ == '__main__':
     if not os.path.exists(AccdbDir):
         os.makedirs(AccdbDir)
+
+    if not os.path.exists(ProcessedDir):
+        os.makedirs(ProcessedDir)
 
     has_updates = check_for_updates()
 
