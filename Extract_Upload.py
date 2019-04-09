@@ -226,11 +226,11 @@ class AccdbHandle:
         if not myresults.empty:
             myresults.columns = self.to_cols
             self.asql.upload(myresults, self.to_table, index=False, index_label=None)
-            Global_Objs['Event_Log'].write_log('Data successfully uploaded from table {0} to sql table {1}'
+            Global_Objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
                                                .format(table, self.to_table))
             return True
         else:
-            Global_Objs['Event_Log'].write_log('Failed to grab data from access table {0}. No update made'
+            Global_Objs['Event_Log'].write_log('Failed to grab data from access table [{0}]. No update made'
                                                .format(table), 'error')
             return False
 
