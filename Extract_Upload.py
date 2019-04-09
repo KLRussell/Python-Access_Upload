@@ -118,6 +118,25 @@ class AccdbHandle:
                     self.from_cols = config[1]
                     self.to_table = config[2]
                     self.to_cols = config[3]
+                    self.get_sql_cols()
+
+                    if not self.validate_cols(self.from_cols, self.accdb_cols):
+                        Global_Objs['Event_Log'].write_log(
+                            'Stored settings for {0} has one or more columns that is not found in file {1} '.format(
+                                table, os.path.basename(self.file)), 'error')
+                        return False
+
+                    if not self.validate_sql_table(self.to_table):
+                        Global_Objs['Event_Log'].write_log(
+                            'SQL TBL {0} has stored settings, but table does not exist anymore'.format(
+                                self.to_table), 'error')
+                        return False
+
+                    if not self.validate_cols(self.to_cols, self.sql_cols):
+                        Global_Objs['Event_Log'].write_log(
+                            'Stored settings for SQL TBL {0} has one or more columns that does not exist'.format(
+                                self.to_table), 'error')
+                        return False
 
             if not self.from_cols and not self.to_table and not self.to_cols:
                 if self.add_config(table):
@@ -178,7 +197,17 @@ class AccdbHandle:
 
         self.to_cols = myanswer
 
-    def process(self):
+    def process(self, table):
+        myresults = Global_Objs['SQL'].query('''
+            SELECT
+                {0}
+            
+            FROM [{1}]
+        '''.format(self.from_cols, table))
+
+        if not myresults.empty:
+            myresults.columns = self.to_cols
+            self.asql.upload(myresults, self.to_table)
 
 
 def check_for_updates():
@@ -201,7 +230,7 @@ def process_updates(files):
 
         for table in myobj.get_accdb_tables():
             if myobj.validate(table):
-                myobj.process()
+                myobj.process(table)
 
         Global_Objs['SQL'].close()
 
