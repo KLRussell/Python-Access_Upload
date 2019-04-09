@@ -6,8 +6,8 @@ import pathlib as pl
 import datetime
 
 CurrDir = os.path.dirname(os.path.abspath(__file__))
-AccdbDir = os.path.join(CurrDir, "01_Process")
-ProcessedDir = os.path.join(CurrDir, "02_Processed")
+AccdbDir = os.path.join(CurrDir, "02_Process")
+ProcessedDir = os.path.join(CurrDir, "03_Processed")
 Global_Objs = grabobjs(CurrDir)
 
 
