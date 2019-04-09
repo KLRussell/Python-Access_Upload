@@ -210,7 +210,8 @@ class SQLHandle:
             self.conn_str = 'driver={0};server={1};database={2};autocommit=True;Trusted_Connection=yes'\
                 .format('{SQL Server}', server, database)
         elif self.conn_type == 'accdb':
-            self.conn_str = 'DRIVER={};DBQ={}'.format('{Microsoft Access Driver (*.mdb, *.accdb)}', self.accdb_file)
+            self.conn_str = 'DRIVER={};DBQ={};Exclusive=1'.format('{Microsoft Access Driver (*.mdb, *.accdb)}',
+                                                                  self.accdb_file)
         elif self.conn_type == 'dsn':
             self.conn_str = 'DSN={};DATABASE=default;Trusted_Connection=Yes;'.format(dsn)
         else:

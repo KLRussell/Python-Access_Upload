@@ -236,7 +236,7 @@ def process_updates(files):
         Global_Objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
         myobj = AccdbHandle(file)
 
-        Global_Objs['SQL'].connect(accdb_file=file)
+        Global_Objs['SQL'].connect('accdb', accdb_file=file)
 
         for table in myobj.get_accdb_tables():
             Global_Objs['Event_Log'].write_log('Validating table {0}'.format(table))
