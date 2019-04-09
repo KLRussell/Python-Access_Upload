@@ -1,3 +1,6 @@
+# If python 32-bit and MS Access engine is 64-bit, use this 32-bit MS Access driver
+# http://www.microsoft.com/en-us/download/details.aspx?id=13255
+
 from Global import grabobjs
 from Global import SQLHandle
 
@@ -20,19 +23,15 @@ class AccdbHandle:
 
     def __init__(self, file):
         self.file = file
-        self.asql = SQLHandle(Global_Objs['Settings']).connect(conn_type='alch')
+        self.asql = SQLHandle(Global_Objs['Settings'])
+        self.asql.connect(conn_type='alch')
 
     @staticmethod
     def get_accdb_tables():
-        myresults = Global_Objs['SQL'].query('''
-                SELECT MSysObjects.Name AS table_name
-                FROM MSysObjects
-                WHERE (((Left([Name],1))<>"~") 
-                        AND ((Left([Name],4))<>"MSys") 
-                        AND ((MSysObjects.Type) In (1,4,6)))''')
+        myresults = Global_Objs['SQL'].get_accdb_tables()
 
         if len(myresults) > 0:
-            return myresults['table_name'].tolist()
+            return myresults
 
     @staticmethod
     def validate_cols(cols, true_cols):
@@ -108,8 +107,8 @@ class AccdbHandle:
 
         if not configs:
             if self.add_config(table):
-                Global_Objs['Local_Settings'].add_item('Accdb_Configs', [table, self.from_cols, self.to_table,
-                                                                         self.to_cols])
+                Global_Objs['Local_Settings'].add_item('Accdb_Configs', [[table, self.from_cols, self.to_table,
+                                                                         self.to_cols]])
                 return True
             else:
                 return False
@@ -141,8 +140,9 @@ class AccdbHandle:
 
             if not self.from_cols and not self.to_table and not self.to_cols:
                 if self.add_config(table):
-                    Global_Objs['Local_Settings'].add_item('Accdb_Configs', [table, self.from_cols, self.to_table,
-                                                                             self.to_cols])
+                    configs.append([table, self.from_cols, self.to_table, self.to_cols])
+                    Global_Objs['Local_Settings'].del_item('Accdb_Configs')
+                    Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
                     return True
                 else:
                     return False
@@ -167,11 +167,14 @@ class AccdbHandle:
 
         while not myanswer:
             print('From these accdb columns, what columns would you like to pull information from:')
-            print('[{}]'.format(self.accdb_cols.join(', ')))
+            print('[{}]'.format(', '.join(self.accdb_cols)))
             myanswer = input()
 
-            if self.validate_cols(myanswer, self.accdb_cols):
-                myanswer = None
+            if myanswer:
+                myanswer = myanswer.replace(', ', ',').split(',')
+
+                if not self.validate_cols(myanswer, self.accdb_cols):
+                    myanswer = None
 
         self.from_cols = myanswer
         myanswer = None
@@ -180,7 +183,7 @@ class AccdbHandle:
             print('Please input the SQL server (schema).(table) that this information will be appending to:')
             myanswer = input()
 
-            if self.validate_sql_table(myanswer):
+            if not self.validate_sql_table(myanswer):
                 myanswer = None
 
         self.to_table = myanswer
@@ -189,26 +192,34 @@ class AccdbHandle:
 
         while not myanswer:
             print('From these sql table columns, please choose the columns that corresponds to the Access Table Columns where information will be inserted:')
-            print('SQL Table Cols: [{}]'.format(self.sql_cols.join(', ')))
-            print('Access Table Cols: [{}]'.format(self.accdb_cols.join(', ')))
+            print('SQL Table Cols: [{}]'.format(', '.join(self.sql_cols)))
+            print('Access Table Cols: [{}]'.format(', '.join(self.from_cols)))
             myanswer = input()
 
-            if self.validate_cols(myanswer, self.sql_cols):
-                myanswer = None
+            if myanswer:
+                myanswer = myanswer.replace(', ', ',').split(',')
+
+                if not self.validate_cols(myanswer, self.sql_cols):
+                    myanswer = None
 
         self.to_cols = myanswer
 
+        return True
+
     def process(self, table):
+        Global_Objs['Event_Log'].write_log('Uploading data from table {0} to sql table {1}'
+                                           .format(table, self.to_table))
+
         myresults = Global_Objs['SQL'].query('''
             SELECT
-                {0}
+                [{0}]
             
             FROM [{1}]
-        '''.format(self.from_cols, table))
+        '''.format('], ['.join(self.from_cols), table))
 
         if not myresults.empty:
             myresults.columns = self.to_cols
-            self.asql.upload(myresults, self.to_table)
+            self.asql.upload(myresults, self.to_table, index=False, index_label=None)
             Global_Objs['Event_Log'].write_log('Data successfully uploaded from table {0} to sql table {1}'
                                                .format(table, self.to_table))
         else:

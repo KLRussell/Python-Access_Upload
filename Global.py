@@ -269,9 +269,17 @@ class SQLHandle:
                         if self.settingsobj.grab_item('Database'):
                             self.settingsobj.del_item('Database')
                         print('Error! Server & Database combination are incorrect!')
+                elif self.conn_type == 'accdb':
+                    if len(self.get_accdb_tables()) > 0:
+                        exit_loop = True
+                    else:
+                        if self.accdb_file:
+                            self.accdb_file = None
 
+                        print('Error! Accdb is incorrect!')
                 else:
                     df = sql.read_sql(myquery, self.conn)
+
                     if len(df) > 0:
                         exit_loop = True
                     else:
@@ -290,8 +298,6 @@ class SQLHandle:
                                 self.dsn = None
                             if self.settingsobj.grab_item('DSN'):
                                 self.settingsobj.del_item('DSN')
-                            if self.accdb_file:
-                                self.accdb_file = None
 
                             print('Error! DSN is incorrect!')
 
@@ -319,6 +325,17 @@ class SQLHandle:
                     print('Error! DSN is incorrect!')
 
                 self.close()
+
+    def get_accdb_tables(self):
+        if self.conn_type == 'accdb':
+            mylist = []
+            ct = self.cursor.tables
+
+            for row in ct():
+                if 'msys' not in row.table_name.lower():
+                    mylist.append(row.table_name)
+
+            return mylist
 
     def connect(self, conn_type, server=None, database=None, dsn=None, accdb_file=None):
         self.conn_type = conn_type
@@ -363,7 +380,7 @@ class SQLHandle:
         else:
             return [self.cursor, self.conn]
 
-    def upload(self, dataframe, sqltable):
+    def upload(self, dataframe, sqltable, index=True, index_label='linenumber'):
         if self.conn_type == 'alch' and not self.session:
             mytbl = sqltable.split(".")
 
@@ -373,8 +390,8 @@ class SQLHandle:
                     self.engine,
                     schema=mytbl[0],
                     if_exists='append',
-                    index=True,
-                    index_label='linenumber',
+                    index=index,
+                    index_label=index_label,
                     chunksize=1000
                 )
             else:
