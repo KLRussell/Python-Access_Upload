@@ -207,7 +207,7 @@ class AccdbHandle:
         return True
 
     def process(self, table):
-        Global_Objs['Event_Log'].write_log('Uploading data from table {0} to sql table {1}'
+        Global_Objs['Event_Log'].write_log('Uploading data from table [{0}] to sql table {1}'
                                            .format(table, self.to_table))
 
         myresults = Global_Objs['SQL'].query('''
@@ -250,7 +250,7 @@ def process_updates(files):
         Global_Objs['SQL'].connect('accdb', accdb_file=file)
 
         for table in myobj.get_accdb_tables():
-            Global_Objs['Event_Log'].write_log('Validating table {0}'.format(table))
+            Global_Objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
             if myobj.validate(table):
                 myobj.process(table)
                 filename = os.path.basename(file)
