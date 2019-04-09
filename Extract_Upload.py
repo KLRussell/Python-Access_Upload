@@ -266,10 +266,11 @@ def process_updates(files):
         myobj.close_asql()
         Global_Objs['SQL'].close()
 
-        filename = os.path.basename(file)
-        os.rename(file, os.path.join(ProcessedDir,
-                                     datetime.datetime.now().__format__("%Y%m%d") + '_' + os.path.split(filename)[0]
-                                     + os.path.split(filename)[1]))
+        if processed:
+            filename = os.path.basename(file)
+            os.rename(file, os.path.join(ProcessedDir,
+                                         datetime.datetime.now().__format__("%Y%m%d") + '_' + os.path.split(filename)[0]
+                                         + os.path.split(filename)[1]))
 
 
 if __name__ == '__main__':
