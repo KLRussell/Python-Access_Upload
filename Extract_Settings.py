@@ -21,7 +21,8 @@ class MainGUI:
         self.var = StringVar()
 
     def buildgui(self):
-        self.root.title('Shelf Locker')
+        self.root.geometry('325x270+500+300')
+        self.root.title('Extract Settings')
 
         top_frame = Frame(self.root)
         middle_frame = Frame(self.root)
@@ -30,18 +31,30 @@ class MainGUI:
         middle_frame.pack()
         bottom_frame.pack(side=BOTTOM, fill=BOTH, expand=True)
 
-        text = Message(self.root, textvariable=self.var, width=180, justify=CENTER)
-        self.var.set('Please choose a table to edit settings:')
+        text = Message(self.root, textvariable=self.var, width=250, justify=CENTER, pady=5)
+        self.var.set('Please choose an access table to edit settings:')
         text.pack(in_=top_frame)
 
-        self.listbox = Listbox(self.root, selectmode=SINGLE, width=35, yscrollcommand=True)
+        scrollbar = Scrollbar(self.root, orient="vertical")
+        scrollbar2 = Scrollbar(self.root, orient="horizontal")
+        self.listbox = Listbox(self.root, selectmode=SINGLE, width=40, yscrollcommand=scrollbar.set,
+                               xscrollcommand=scrollbar2.set)
         self.populatebox()
-        self.listbox.pack(in_=middle_frame)
+        scrollbar.config(command=self.listbox.yview)
+        scrollbar2.config(command=self.listbox.xview)
+        scrollbar.pack(in_=middle_frame, side="right", fill="y")
+        scrollbar2.pack(in_=middle_frame, side="bottom", fill="x")
+        self.listbox.pack(in_=middle_frame, pady=5)
 
-        btn = Button(self.root, text="Change Settings", width=7, command=self.change_settings)
-        btn2 = Button(self.root, text="Cancel", width=7, command=self.cancel)
-        btn.pack(in_=bottom_frame, side=LEFT)
-        btn2.pack(in_=bottom_frame, side=RIGHT)
+        btn = Button(self.root, text="Change Settings", width=15, command=self.change_settings)
+        btn2 = Button(self.root, text="Cancel", width=15, command=self.cancel)
+        btn.pack(in_=bottom_frame, side=LEFT, padx=10)
+        btn2.pack(in_=bottom_frame, side=RIGHT, padx=10)
+
+        if self.listbox.size() > 0:
+            self.listbox.select_set(0)
+        else:
+            btn.config(state=DISABLED)
 
     def showgui(self):
         self.root.mainloop()
@@ -50,7 +63,7 @@ class MainGUI:
         configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
 
         for i in configs:
-            self.listbox.insert("end", i)
+            self.listbox.insert("end", i[0])
 
     def change_settings(self):
         if self.listbox.curselection():
