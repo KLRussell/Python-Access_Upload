@@ -88,6 +88,8 @@ class MainGUI:
 
 class SettingsGUI:
     entry1 = None
+    entry2 = None
+    entry3 = None
     listbox = None
     selection = 0
 
@@ -108,30 +110,44 @@ class SettingsGUI:
         assert self.config
 
     def buildgui(self):
-        self.dialog.geometry('250x200+500+300')
+        self.dialog.geometry('700x295+500+300')
         self.dialog.title('Update TBL Settings')
 
         top_frame = Frame(self.dialog)
+        middle_frame_main = Frame(self.dialog)
+        middle_frame_right_main = Frame(self.dialog)
+        middle_frame_right_submain = Frame(self.dialog)
         middle_frame = Frame(self.dialog)
         middle_frame2 = Frame(self.dialog)
+        middle_frame3 = Frame(self.dialog)
+        data_frame1 = Frame(self.dialog)
+        data_frame2 = Frame(self.dialog)
+        data_frame3 = Frame(self.dialog)
         bottom_frame = Frame(self.dialog)
-        top_frame.pack(side=TOP)
+        top_frame.pack()
         middle_frame.pack()
-        middle_frame2.pack()
-        bottom_frame.pack(side=BOTTOM, fill=BOTH, expand=True)
+        middle_frame_main.pack()
+        middle_frame2.pack(in_=middle_frame_main, side=LEFT)
+        middle_frame_right_main.pack(in_=middle_frame_main, side=RIGHT)
+        middle_frame3.pack(in_=middle_frame_right_main, side=LEFT)
+        middle_frame_right_submain.pack(in_=middle_frame_right_main, side=RIGHT)
+        data_frame1.pack(in_=middle_frame_right_submain)
+        data_frame2.pack(in_=middle_frame_right_submain)
+        data_frame3.pack(in_=middle_frame_right_submain)
+        bottom_frame.pack(fill=BOTH)
 
         header = Message(self.dialog, text='Please input custom settings for access table {0}:'.format(self.table),
-                         width=240)
+                         width=675)
         header.pack(in_=top_frame)
 
         label1 = Label(self.dialog, text='SQL Server TBL: ', pady=7)
-        self.entry1 = Entry(self.dialog)
+        self.entry1 = Entry(self.dialog, width=40)
         label1.pack(in_=middle_frame, side=LEFT)
         self.entry1.pack(in_=middle_frame, side=RIGHT)
 
         scrollbar = Scrollbar(self.dialog, orient="vertical")
         scrollbar2 = Scrollbar(self.dialog, orient="horizontal")
-        self.listbox = Listbox(self.dialog, selectmode=SINGLE, width=40, yscrollcommand=scrollbar.set,
+        self.listbox = Listbox(self.dialog, selectmode=SINGLE, width=60, yscrollcommand=scrollbar.set,
                                xscrollcommand=scrollbar2.set)
 
         self.populatefields()
@@ -140,17 +156,46 @@ class SettingsGUI:
         scrollbar2.config(command=self.listbox.xview)
         scrollbar.pack(in_=middle_frame2, side="right", fill="y")
         scrollbar2.pack(in_=middle_frame2, side="bottom", fill="x")
-        self.listbox.pack(in_=middle_frame2, pady=5)
+        self.listbox.pack(in_=middle_frame2, side="left", pady=5)
         self.listbox.bind("<Down>", self.on_list_down)
         self.listbox.bind("<Up>", self.on_list_up)
         self.listbox.bind('<<ListboxSelect>>', self.on_select)
         self.listbox.select_set(self.selection)
 
-        btn = Button(self.dialog, text="Save Settings", width=10, command=self.save_settings)
-        btn2 = Button(self.dialog, text="Cancel", width=10, command=self.close)
-        btn.pack(in_=bottom_frame, side=LEFT, padx=10)
-        btn2.pack(in_=bottom_frame, side=RIGHT, padx=10)
+        edit_but = Button(self.dialog, text='Edit', width=6, command=self.edit)
+        edit_but.pack(in_=middle_frame3, pady=5, padx=5)
+        del_but = Button(self.dialog, text='Delete', width=6, command=self.delete)
+        del_but.pack(in_=middle_frame3, pady=5, padx=5)
+
+        label2 = Label(self.dialog, text='Access TBL Col: ', padx=10, pady=7)
+        self.entry2 = Entry(self.dialog)
+        label2.pack(in_=data_frame1, side=LEFT)
+        self.entry2.pack(in_=data_frame1, side=RIGHT)
+        label3 = Label(self.dialog, text='SQL TBL Col: ', padx=16, pady=7)
+        self.entry3 = Entry(self.dialog)
+        label3.pack(in_=data_frame2, side=LEFT)
+        self.entry3.pack(in_=data_frame2, side=RIGHT)
+
+        add_but = Button(self.dialog, text='Add', width=15, command=self.add)
+        add_but.pack(in_=data_frame3, padx=5, pady=5)
+
+        btn = Button(self.dialog, text="Save Settings", width=20, command=self.save_settings)
+        btn2 = Button(self.dialog, text="Cancel", width=20, command=self.close)
+        btn3 = Button(self.dialog, text="Delete Settings", width=20, command=self.del_settings)
+        btn.pack(in_=bottom_frame, side=LEFT, padx=10, pady=10)
+        btn2.pack(in_=bottom_frame, side=RIGHT, padx=10, pady=10)
+        btn3.pack(in_=bottom_frame, side=TOP, pady=10)
+
         self.dialog.mainloop()
+
+    def add(self):
+        print('adding item')
+
+    def edit(self):
+        print('editing item')
+
+    def delete(self):
+        print('deleting item')
 
     def populatefields(self):
         self.entry1.insert(0, self.config[2])
@@ -158,7 +203,7 @@ class SettingsGUI:
             self.listbox.insert("end", '{0} => {1}'.format(from_col, to_col))
 
     def on_select(self, event):
-        if -1 < self.selection < self.listbox.size() - 1:
+        if self.listbox and self.listbox.curselection() and -1 < self.selection < self.listbox.size() - 1:
             self.selection = self.listbox.curselection()[0]
 
     def on_list_down(self, event):
@@ -172,6 +217,9 @@ class SettingsGUI:
             self.listbox.select_clear(self.selection)
             self.selection -= 1
             self.listbox.select_set(self.selection)
+
+    def del_settings(self):
+        print('deleting setting')
 
     def save_settings(self):
         if self.entry1.get() == "General_Settings_Path":
