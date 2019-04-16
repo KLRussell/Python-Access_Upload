@@ -13,6 +13,7 @@ Global_Objs = grabobjs(CurrDir)
 
 
 class MainGUI:
+    selection = 0
     listbox = None
     obj = None
 
@@ -47,6 +48,12 @@ class MainGUI:
         scrollbar.pack(in_=middle_frame, side="right", fill="y")
         scrollbar2.pack(in_=middle_frame, side="bottom", fill="x")
         self.listbox.pack(in_=middle_frame, pady=5)
+        self.listbox.bind("<Down>", self.on_list_down)
+        self.listbox.bind("<Up>", self.on_list_up)
+        self.listbox.bind('<<ListboxSelect>>', self.on_select)
+
+        if self.listbox and self.listbox.curselection():
+            self.listbox.select_set(self.selection)
 
         btn = Button(self.root, text="Change Settings", width=15, command=self.change_settings)
         btn2 = Button(self.root, text="Cancel", width=15, command=self.cancel)
@@ -57,6 +64,22 @@ class MainGUI:
             self.listbox.select_set(0)
         else:
             btn.config(state=DISABLED)
+
+    def on_select(self, event):
+        if self.listbox and self.listbox.curselection() and -1 < self.selection < self.listbox.size() - 1:
+            self.selection = self.listbox.curselection()[0]
+
+    def on_list_down(self, event):
+        if self.selection < self.listbox.size()-1:
+            self.listbox.select_clear(self.selection)
+            self.selection += 1
+            self.listbox.select_set(self.selection)
+
+    def on_list_up(self, event):
+        if self.selection > 0:
+            self.listbox.select_clear(self.selection)
+            self.selection -= 1
+            self.listbox.select_set(self.selection)
 
     def showgui(self):
         self.root.mainloop()
