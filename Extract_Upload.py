@@ -258,19 +258,21 @@ def process_updates(files):
 
         Global_Objs['SQL'].connect('accdb', accdb_file=file)
 
-        for table in myobj.get_accdb_tables():
-            Global_Objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
-            if myobj.validate(table):
-                processed = myobj.process(table)
+        try:
+            for table in myobj.get_accdb_tables():
+                Global_Objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
 
-        myobj.close_asql()
-        Global_Objs['SQL'].close()
+                if myobj.validate(table) and myobj.process(table):
+                    processed = True
 
-        if processed:
-            filename = os.path.basename(file)
-            os.rename(file, os.path.join(ProcessedDir,
-                                         datetime.datetime.now().__format__("%Y%m%d") + '_' + os.path.split(filename)[0]
-                                         + os.path.split(filename)[1]))
+            if processed:
+                filename = os.path.basename(file)
+                os.rename(file, os.path.join(ProcessedDir, '{0}_{1}{2}'.format(
+                    datetime.datetime.now().__format__("%Y%m%d"), os.path.split(filename)[0],
+                    os.path.split(filename)[1])))
+        finally:
+            myobj.close_asql()
+            Global_Objs['SQL'].close()
 
 
 if __name__ == '__main__':
