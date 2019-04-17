@@ -326,6 +326,8 @@ class SettingsGUI:
             configs.append(mylist)
             Global_Objs['Local_Settings'].del_item('Accdb_Configs')
             Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
+
+            self.dialog.destroy()
         elif len(self.entry1.get()) < 1:
             messagebox.showerror('Entry Field Empty Error!',
                                  'SQL Server TBL field is empty. Please add a <schema>.<table>')
