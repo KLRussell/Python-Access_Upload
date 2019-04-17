@@ -217,8 +217,13 @@ class SettingsGUI:
             if self.edit_pos > -1:
                 self.listbox.insert(self.edit_pos, '{0} => {1}'.format(self.entry2.get(), self.entry3.get()))
                 self.edit_pos = -1
-                self.listbox.select_clear(self.selection + 1)
-                self.listbox.select_set(self.selection)
+
+                if self.selection == 0:
+                    self.listbox.select_clear(self.selection + 1)
+                    self.listbox.select_set(self.selection)
+                else:
+                    self.listbox.select_clear(self.selection)
+                    self.listbox.select_set(self.selection + 1)
             else:
                 self.listbox.insert("end", '{0} => {1}'.format(self.entry2.get(), self.entry3.get()))
             self.entry2.delete(0, len(self.entry2.get()))
