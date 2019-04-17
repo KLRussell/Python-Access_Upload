@@ -95,7 +95,7 @@ class MainGUI:
             if self.obj:
                 self.obj.close()
 
-            self.obj = SettingsGUI(self.root, self.listbox.get(self.listbox.curselection()))
+            self.obj = SettingsGUI(self, self.root, self.listbox.get(self.listbox.curselection()))
             self.obj.buildgui()
         elif self.listbox.size() < 1:
             messagebox.showerror('Settings Empty Error!', 'No settings have been saved. Please run Extract_Upload.py')
@@ -117,13 +117,14 @@ class SettingsGUI:
     selection = 0
     edit_pos = -1
 
-    def __init__(self, root, table):
+    def __init__(self, mainobj, root, table):
         assert root
         assert table
         self.dialog = Toplevel(root)
         self.rvar = IntVar()
         self.evar = StringVar()
         self.table = table
+        self.mainobj = mainobj
         configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
 
         for config in configs:
@@ -132,6 +133,10 @@ class SettingsGUI:
                 break
 
         assert self.config
+        self.dialog.bind('<Destroy>', self.dialog_destroy)
+
+    def dialog_destroy(self, event):
+        self.mainobj.listbox.select_set(self.mainobj.selection)
 
     def buildgui(self):
         self.dialog.geometry('700x295+500+300')
