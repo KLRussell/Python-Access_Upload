@@ -323,6 +323,8 @@ class SettingsGUI:
             if len(configs) > 0:
                 Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
 
+            self.dialog.destroy()
+
     def save_settings(self):
         if len(self.entry1.get()) > 0 and self.listbox.size() > 0:
             mylist = self.listbox.get(0, self.listbox.size() - 1)
