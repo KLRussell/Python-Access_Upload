@@ -125,7 +125,7 @@ class AccdbHandle:
                     self.from_cols = config[1]
                     self.to_table = config[2]
                     self.to_cols = config[3]
-                    if len(config) == 5 and len(config[4]) > 0:
+                    if len(config) == 5 and config[4]:
                         self.truncate = config[4]
                     self.get_sql_cols()
 
@@ -241,12 +241,13 @@ class AccdbHandle:
         '''.format('], ['.join(self.from_cols), table))
 
         if not myresults.empty:
+            myresults.columns = self.to_cols
+
             if self.truncate:
                 Global_Objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.to_table))
-                self.asql.execute('truncate table {0}'.format(self.to_table))
-
-            myresults.columns = self.to_cols
-            self.asql.upload(myresults, self.to_table, index=False, index_label=None)
+                self.asql.upload(myresults, self.to_table, index=False, index_label=None, truncate=True)
+            else:
+                self.asql.upload(myresults, self.to_table, index=False, index_label=None, truncate=False)
             Global_Objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
                                                .format(table, self.to_table))
             return True
