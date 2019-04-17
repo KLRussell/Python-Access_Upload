@@ -97,7 +97,7 @@ class MainGUI:
 
             self.obj = SettingsGUI(self.root, self.listbox.get(self.listbox.curselection()))
             self.obj.buildgui()
-        elif self.listbox.size() > 0:
+        elif self.listbox.size() < 1:
             messagebox.showerror('Settings Empty Error!', 'No settings have been saved. Please run Extract_Upload.py')
         else:
             messagebox.showerror('Selection Error!', 'No table settings was selected. Please select from list')
@@ -115,6 +115,7 @@ class SettingsGUI:
     entry3 = None
     listbox = None
     selection = 0
+    edit_pos = -1
 
     def __init__(self, root, table):
         assert root
@@ -212,13 +213,58 @@ class SettingsGUI:
         self.dialog.mainloop()
 
     def add(self):
-        print('adding item')
+        if len(self.entry2.get()) > 0 and len(self.entry3.get()) > 0:
+            if self.edit_pos > -1:
+                self.listbox.insert(self.edit_pos, '{0} => {1}'.format(self.entry2.get(), self.entry3.get()))
+                self.edit_pos = -1
+                self.listbox.select_clear(self.selection + 1)
+                self.listbox.select_set(self.selection)
+            else:
+                self.listbox.insert("end", '{0} => {1}'.format(self.entry2.get(), self.entry3.get()))
+            self.entry2.delete(0, len(self.entry2.get()))
+            self.entry3.delete(0, len(self.entry3.get()))
+        elif len(self.entry2.get()) < 1:
+            messagebox.showerror('Data Missing Error!', 'No Access TBL Col was specified')
+        else:
+            messagebox.showerror('Data Missing Error!', 'No SQL TBL Col was specified')
 
     def edit(self):
-        print('editing item')
+        if self.listbox.size() > 0 and int(self.listbox.curselection()[0]) > -1:
+            selection = self.listbox.get(self.listbox.curselection()).split(' => ')
+
+            if len(self.entry2.get()) > 0:
+                self.entry2.delete(0, len(self.entry2.get()))
+
+            self.entry2.insert(0, selection[0])
+
+            if len(self.entry3.get()) > 0:
+                self.entry3.delete(0, len(self.entry3.get()))
+
+            self.entry3.insert(0, selection[1])
+            self.listbox.delete(self.listbox.curselection())
+            self.edit_pos = self.selection
+
+            if self.selection > 0:
+                self.selection -= 1
+
+            self.listbox.select_set(self.selection)
+        elif self.listbox.size() < 1:
+            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns')
+        else:
+            messagebox.showerror('Selection Error!', 'No item was selected. Please select from list')
 
     def delete(self):
-        print('deleting item')
+        if self.listbox.size() > 0 and int(self.listbox.curselection()[0]) > -1:
+            self.listbox.delete(self.listbox.curselection())
+
+            if self.selection > 0:
+                self.selection -= 1
+
+            self.listbox.select_set(self.selection)
+        elif self.listbox.size() < 1:
+            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns')
+        else:
+            messagebox.showerror('Selection Error!', 'No item was selected. Please select from list')
 
     def populatefields(self):
         self.entry1.insert(0, self.config[2])
