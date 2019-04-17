@@ -380,21 +380,16 @@ class SQLHandle:
         else:
             return [self.cursor, self.conn]
 
-    def upload(self, dataframe, sqltable, index=True, index_label='linenumber', truncate=False):
+    def upload(self, dataframe, sqltable, index=True, index_label='linenumber'):
         if self.conn_type == 'alch' and not self.session:
             mytbl = sqltable.split(".")
-
-            if truncate:
-                exist_val = 'append'
-            else:
-                exist_val = 'replace'
 
             if len(mytbl) > 1:
                 dataframe.to_sql(
                     mytbl[1],
                     self.engine,
                     schema=mytbl[0],
-                    if_exists=exist_val,
+                    if_exists='append',
                     index=index,
                     index_label=index_label,
                     chunksize=1000
@@ -430,7 +425,7 @@ class SQLHandle:
     def execute(self, query):
         try:
             if self.conn_type == 'alch':
-                self.engine.execute(mysql.text(query))
+                self.engine.execution_options(autocommit=True).execute(mysql.text(query))
             else:
                 self.cursor.execute(query)
 
