@@ -15,6 +15,7 @@ Global_Objs = grabobjs(CurrDir)
 
 
 class AccdbHandle:
+    truncate = False
     accdb_cols = None
     sql_cols = None
     from_cols = None
@@ -114,7 +115,7 @@ class AccdbHandle:
         if not configs:
             if self.add_config(table):
                 Global_Objs['Local_Settings'].add_item('Accdb_Configs', [[table, self.from_cols, self.to_table,
-                                                                         self.to_cols]])
+                                                                         self.to_cols, self.truncate]])
                 return True
             else:
                 return False
@@ -124,6 +125,8 @@ class AccdbHandle:
                     self.from_cols = config[1]
                     self.to_table = config[2]
                     self.to_cols = config[3]
+                    if len(config) == 5 and len(config[4]) > 0:
+                        self.truncate = config[4]
                     self.get_sql_cols()
 
                     if not self.validate_cols(self.from_cols, self.accdb_cols):
@@ -146,7 +149,7 @@ class AccdbHandle:
 
             if not self.from_cols and not self.to_table and not self.to_cols:
                 if self.add_config(table):
-                    configs.append([table, self.from_cols, self.to_table, self.to_cols])
+                    configs.append([table, self.from_cols, self.to_table, self.to_cols, self.truncate])
                     Global_Objs['Local_Settings'].del_item('Accdb_Configs')
                     Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
                     return True
@@ -209,6 +212,20 @@ class AccdbHandle:
                     myanswer = None
 
         self.to_cols = myanswer
+        myanswer = None
+
+        while not myanswer:
+            print(
+                'Would you like to truncate the SQL TBL [{0}] before inserting? (yes, no)'.format(self.to_table))
+            myanswer = input()
+
+            if myanswer.lower() not in ['yes', 'no']:
+                myanswer = None
+
+        if myanswer.lower() == 'yes':
+            self.truncate = True
+        else:
+            self.truncate = False
 
         return True
 
@@ -224,6 +241,10 @@ class AccdbHandle:
         '''.format('], ['.join(self.from_cols), table))
 
         if not myresults.empty:
+            if self.truncate:
+                Global_Objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.to_table))
+                self.asql.execute('truncate table {0}'.format(self.to_table))
+
             myresults.columns = self.to_cols
             self.asql.upload(myresults, self.to_table, index=False, index_label=None)
             Global_Objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
