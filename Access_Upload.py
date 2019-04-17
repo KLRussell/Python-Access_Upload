@@ -245,14 +245,6 @@ class AccdbHandle:
 
             if self.truncate:
                 Global_Objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.to_table))
-                '''
-                obj = SQLHandle(Global_Objs['Settings'])
-                obj.connect('sql')
-                try:
-                    obj.execute('truncate table {0}'.format(self.to_table))
-                finally:
-                    obj.close()
-                '''
                 self.asql.execute('truncate table {0}'.format(self.to_table))
 
             self.asql.upload(myresults, self.to_table, index=False, index_label=None)
