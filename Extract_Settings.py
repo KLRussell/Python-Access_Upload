@@ -1,11 +1,8 @@
 from Global import grabobjs
-from Global import ShelfHandle
 from tkinter import *
 from tkinter import messagebox
 
 import os
-import random
-import pandas as pd
 
 CurrDir = os.path.dirname(os.path.abspath(__file__))
 PreserveDir = os.path.join(CurrDir, '04_Preserve')
