@@ -119,7 +119,6 @@ class SettingsGUI:
         assert table
         self.dialog = Toplevel(root)
         self.rvar = IntVar()
-        self.evar = StringVar()
         self.table = table
         self.mainobj = mainobj
         configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
@@ -168,8 +167,10 @@ class SettingsGUI:
 
         label1 = Label(self.dialog, text='SQL Server TBL: ', pady=7)
         self.entry1 = Entry(self.dialog, width=40)
+        chkbox = Checkbutton(self.dialog, text='Truncate SQL Table', variable=self.rvar)
         label1.pack(in_=middle_frame, side=LEFT)
-        self.entry1.pack(in_=middle_frame, side=RIGHT)
+        chkbox.pack(in_=middle_frame, side=RIGHT, padx=5)
+        self.entry1.pack(in_=middle_frame, side=TOP, pady=7)
 
         scrollbar = Scrollbar(self.dialog, orient="vertical")
         scrollbar2 = Scrollbar(self.dialog, orient="horizontal")
@@ -275,6 +276,13 @@ class SettingsGUI:
 
     def populatefields(self):
         self.entry1.insert(0, self.config[2])
+
+        if len(self.config) == 5:
+            if self.config[4]:
+                self.rvar.set(1)
+            else:
+                self.rvar.set(0)
+
         for from_col, to_col in zip(self.config[1], self.config[3]):
             self.listbox.insert("end", '{0} => {1}'.format(from_col, to_col))
 
@@ -317,7 +325,12 @@ class SettingsGUI:
                 from_cols.append(cols[0])
                 to_cols.append(cols[1])
 
-            mylist = [self.table, from_cols, self.entry1.get(), to_cols]
+            if self.rvar.get() == 1:
+                truncate = True
+            else:
+                truncate = False
+
+            mylist = [self.table, from_cols, self.entry1.get(), to_cols, truncate]
             configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
 
             for config in configs:
