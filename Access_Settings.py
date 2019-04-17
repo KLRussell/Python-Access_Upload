@@ -95,9 +95,11 @@ class MainGUI:
             self.obj = SettingsGUI(self, self.root, self.listbox.get(self.listbox.curselection()))
             self.obj.buildgui()
         elif self.listbox.size() < 1:
-            messagebox.showerror('Settings Empty Error!', 'No settings have been saved. Please run Extract_Upload.py')
+            messagebox.showerror('Settings Empty Error!', 'No settings have been saved. Please run Extract_Upload.py',
+                                 parent=self.root)
         else:
-            messagebox.showerror('Selection Error!', 'No table settings was selected. Please select from list')
+            messagebox.showerror('Selection Error!', 'No table settings was selected. Please select from list',
+                                 parent=self.root)
 
     def cancel(self):
         if self.obj:
@@ -232,9 +234,9 @@ class SettingsGUI:
             self.entry2.delete(0, len(self.entry2.get()))
             self.entry3.delete(0, len(self.entry3.get()))
         elif len(self.entry2.get()) < 1:
-            messagebox.showerror('Data Missing Error!', 'No Access TBL Col was specified')
+            messagebox.showerror('Data Missing Error!', 'No Access TBL Col was specified', parent=self.dialog)
         else:
-            messagebox.showerror('Data Missing Error!', 'No SQL TBL Col was specified')
+            messagebox.showerror('Data Missing Error!', 'No SQL TBL Col was specified', parent=self.dialog)
 
     def edit(self):
         if self.listbox.size() > 0 and int(self.listbox.curselection()[0]) > -1:
@@ -257,9 +259,11 @@ class SettingsGUI:
 
             self.listbox.select_set(self.selection)
         elif self.listbox.size() < 1:
-            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns')
+            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns',
+                                 parent=self.dialog)
         else:
-            messagebox.showerror('Selection Error!', 'No item was selected. Please select from list')
+            messagebox.showerror('Selection Error!', 'No item was selected. Please select from list',
+                                 parent=self.dialog)
 
     def delete(self):
         if self.listbox.size() > 0 and int(self.listbox.curselection()[0]) > -1:
@@ -270,9 +274,11 @@ class SettingsGUI:
 
             self.listbox.select_set(self.selection)
         elif self.listbox.size() < 1:
-            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns')
+            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns',
+                                 parent=self.dialog)
         else:
-            messagebox.showerror('Selection Error!', 'No item was selected. Please select from list')
+            messagebox.showerror('Selection Error!', 'No item was selected. Please select from list',
+                                 parent=self.dialog)
 
     def populatefields(self):
         self.entry1.insert(0, self.config[2])
@@ -303,6 +309,10 @@ class SettingsGUI:
             self.listbox.select_set(self.selection)
 
     def del_settings(self):
+        myresponse = messagebox.askokcancel('Deletion Notice!', 'Are you sure you would like to delete the settings?',
+                                            parent=self.dialog)
+        print(myresponse)
+        '''
         configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
         for config in configs:
             if config[0] == self.table:
@@ -313,6 +323,7 @@ class SettingsGUI:
 
         if len(configs) > 0:
             Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
+        '''
 
     def save_settings(self):
         if len(self.entry1.get()) > 0 and self.listbox.size() > 0:
@@ -345,9 +356,10 @@ class SettingsGUI:
             self.dialog.destroy()
         elif len(self.entry1.get()) < 1:
             messagebox.showerror('Entry Field Empty Error!',
-                                 'SQL Server TBL field is empty. Please add a <schema>.<table>')
+                                 'SQL Server TBL field is empty. Please add a <schema>.<table>', parent=self.dialog)
         else:
-            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns')
+            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns',
+                                 parent=self.dialog)
 
     def close(self):
         self.dialog.destroy()
