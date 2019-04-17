@@ -327,33 +327,37 @@ class SettingsGUI:
 
     def save_settings(self):
         if len(self.entry1.get()) > 0 and self.listbox.size() > 0:
-            mylist = self.listbox.get(0, self.listbox.size() - 1)
-            from_cols = []
-            to_cols = []
+            myresponse = messagebox.askokcancel('Save Notice!',
+                                                'Are you sure you would like to save these settings?',
+                                                parent=self.dialog)
+            if myresponse:
+                mylist = self.listbox.get(0, self.listbox.size() - 1)
+                from_cols = []
+                to_cols = []
 
-            for item in mylist:
-                cols = item.split(' => ')
-                from_cols.append(cols[0])
-                to_cols.append(cols[1])
+                for item in mylist:
+                    cols = item.split(' => ')
+                    from_cols.append(cols[0])
+                    to_cols.append(cols[1])
 
-            if self.rvar.get() == 1:
-                truncate = True
-            else:
-                truncate = False
+                if self.rvar.get() == 1:
+                    truncate = True
+                else:
+                    truncate = False
 
-            mylist = [self.table, from_cols, self.entry1.get(), to_cols, truncate]
-            configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
+                mylist = [self.table, from_cols, self.entry1.get(), to_cols, truncate]
+                configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
 
-            for config in configs:
-                if config[0] == self.table:
-                    configs.remove(config)
-                    break
+                for config in configs:
+                    if config[0] == self.table:
+                        configs.remove(config)
+                        break
 
-            configs.append(mylist)
-            Global_Objs['Local_Settings'].del_item('Accdb_Configs')
-            Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
+                configs.append(mylist)
+                Global_Objs['Local_Settings'].del_item('Accdb_Configs')
+                Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
 
-            self.dialog.destroy()
+                self.dialog.destroy()
         elif len(self.entry1.get()) < 1:
             messagebox.showerror('Entry Field Empty Error!',
                                  'SQL Server TBL field is empty. Please add a <schema>.<table>', parent=self.dialog)
