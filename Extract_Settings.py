@@ -293,28 +293,44 @@ class SettingsGUI:
             self.listbox.select_set(self.selection)
 
     def del_settings(self):
-        print('deleting setting')
+        configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
+        for config in configs:
+            if config[0] == self.table:
+                configs.remove(config)
+                break
+
+        Global_Objs['Local_Settings'].del_item('Accdb_Configs')
+
+        if len(configs) > 0:
+            Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
 
     def save_settings(self):
-        if self.entry1.get() == "General_Settings_Path":
-            messagebox.showerror('Table Error', 'Unable to have General_Settings_Path as a table name')
-        elif self.entry1.get() == 'Server':
-            messagebox.showerror('Table Error', 'Unable to have Server as a table name')
-        elif self.entry1.get() == 'Database':
-            messagebox.showerror('Table Error', 'Unable to have Database as a table name')
+        if len(self.entry1.get()) > 0 and self.listbox.size() > 0:
+            mylist = self.listbox.get(0, self.listbox.size() - 1)
+            from_cols = []
+            to_cols = []
+
+            for item in mylist:
+                cols = item.split(' => ')
+                from_cols.append(cols[0])
+                to_cols.append(cols[1])
+
+            mylist = [self.table, from_cols, self.entry1.get(), to_cols]
+            configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
+
+            for config in configs:
+                if config[0] == self.table:
+                    configs.remove(config)
+                    break
+
+            configs.append(mylist)
+            Global_Objs['Local_Settings'].del_item('Accdb_Configs')
+            Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
+        elif len(self.entry1.get()) < 1:
+            messagebox.showerror('Entry Field Empty Error!',
+                                 'SQL Server TBL field is empty. Please add a <schema>.<table>')
         else:
-            if self.rvar.get() == 1:
-                myitems = [True, self.entry2.get()]
-            else:
-                myitems = [False, self.entry2.get()]
-
-            if self.entry1.get() in self.local_settings:
-                Global_Objs['Local_Settings'].del_item(self.entry1.get())
-
-            if self.rvar.get() != 1 or self.entry2.get() != '14':
-                Global_Objs['Local_Settings'].add_item(self.entry1.get(), myitems)
-
-            self.dialog.destroy()
+            messagebox.showerror('List Empty Error!', 'No items in the list. Please add a setting for columns')
 
     def close(self):
         self.dialog.destroy()
