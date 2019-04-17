@@ -311,19 +311,17 @@ class SettingsGUI:
     def del_settings(self):
         myresponse = messagebox.askokcancel('Deletion Notice!', 'Are you sure you would like to delete the settings?',
                                             parent=self.dialog)
-        print(myresponse)
-        '''
-        configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
-        for config in configs:
-            if config[0] == self.table:
-                configs.remove(config)
-                break
+        if myresponse:
+            configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
+            for config in configs:
+                if config[0] == self.table:
+                    configs.remove(config)
+                    break
 
-        Global_Objs['Local_Settings'].del_item('Accdb_Configs')
+            Global_Objs['Local_Settings'].del_item('Accdb_Configs')
 
-        if len(configs) > 0:
-            Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
-        '''
+            if len(configs) > 0:
+                Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
 
     def save_settings(self):
         if len(self.entry1.get()) > 0 and self.listbox.size() > 0:
