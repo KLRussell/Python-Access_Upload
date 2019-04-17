@@ -17,12 +17,20 @@ def grabobjs(scriptdir):
         myobjs = dict()
         myinput = None
 
-        if len(list(pl.Path(scriptdir).glob('General_Settings.*'))) > 0:
-            myobjs['Settings'] = ShelfHandle(os.path.join(scriptdir, 'General_Settings'))
-        elif len(list(pl.Path(scriptdir).glob('Script_Settings.*'))) > 0:
+        if len(list(pl.Path(scriptdir).glob('Script_Settings.*'))) > 0:
             myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
-            myobjs['Settings'] = ShelfHandle(os.path.join(myobjs['Local_Settings'].grab_item('General_Settings_Path'),
-                                                          'General_Settings'))
+            mydir = myobjs['Local_Settings'].grab_item('General_Settings_Path')
+
+            if mydir and os.path.exists(mydir):
+                myobjs['Settings'] = ShelfHandle(os.path.join(myobjs['Local_Settings'].grab_item(
+                    'General_Settings_Path'), 'General_Settings'))
+            else:
+                while not myinput:
+                    print("Please input a directory path where to setup general settings at:")
+                    myinput = input()
+
+                    if myinput and not os.path.exists(myinput):
+                        myinput = None
         else:
             while not myinput:
                 print("Please input a directory path where to setup general settings at:")
@@ -31,12 +39,10 @@ def grabobjs(scriptdir):
                 if myinput and not os.path.exists(myinput):
                     myinput = None
 
-            if myinput == scriptdir:
-                myobjs['Settings'] = ShelfHandle(os.path.join(scriptdir, 'General_Settings'))
-            else:
-                myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
-                myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
-                myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
+        if myinput:
+            myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
+            myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
+            myobjs['Settings'] = ShelfHandle(os.path.join(scriptdir, 'General_Settings'))
 
         myobjs['Event_Log'] = LogHandle(scriptdir)
         myobjs['SQL'] = SQLHandle(myobjs['Settings'])
