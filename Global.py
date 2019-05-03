@@ -1,6 +1,10 @@
 from pandas.io import sql
 from sqlalchemy.orm import sessionmaker
 from urllib.parse import quote_plus
+from cryptography.fernet import Fernet
+from cryptography.hazmat.backends import default_backend
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 import pathlib as pl
 import pandas as pd
@@ -10,6 +14,9 @@ import pyodbc
 import os
 import datetime
 import logging
+import base64
+import random
+import string
 
 
 def grabobjs(scriptdir):
@@ -42,7 +49,7 @@ def grabobjs(scriptdir):
         if myinput:
             myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
             myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
-            myobjs['Settings'] = ShelfHandle(os.path.join(scriptdir, 'General_Settings'))
+            myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
 
         myobjs['Event_Log'] = LogHandle(scriptdir)
         myobjs['SQL'] = SQLHandle(myobjs['Settings'])
@@ -51,6 +58,66 @@ def grabobjs(scriptdir):
         return myobjs
     else:
         raise Exception('Invalid script path provided')
+
+
+class CryptHandle:
+    key = None
+    encrypted_text = None
+
+    @staticmethod
+    def random_text():
+        digits = "".join([random.choice(string.digits+string.ascii_letters) for i in range(15)])
+        return digits
+
+    def create_key(self, text=None):
+        if not text:
+            text = self.random_text()
+
+        etext = text.encode()
+        salt = os.urandom(16)
+
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=100000,
+            backend=default_backend()
+        )
+
+        self.key = base64.urlsafe_b64encode(kdf.derive(etext))
+
+    def encrypt_text(self, text):
+        if not self.key:
+            self.create_key()
+
+        crypt_obj = Fernet(self.key)
+        self.encrypted_text = crypt_obj.encrypt(text.encode())
+
+    def decrypt_text(self):
+        if self.key and self.encrypted_text:
+            crypt_obj = Fernet(self.key)
+            return crypt_obj.decrypt(self.encrypted_text).decode()
+
+    def grab_items(self):
+        return [self.key, self.encrypted_text]
+
+    def compare_text(self, compare_key, encrypt_text):
+        if self.key and self.encrypted_text and compare_key and encrypt_text:
+            crypt_obj = Fernet(compare_key)
+            crypt_obj2 = Fernet(self.key)
+
+            if crypt_obj.decrypt(self.encrypted_text) == crypt_obj2.decrypt(encrypt_text):
+                return True
+            else:
+                return False
+        elif not compare_key:
+            raise Exception('No comparison key has been provided in parameter')
+        elif not encrypt_text:
+            raise Exception('No encrypted text has been provided in parameter')
+        elif not self.key:
+            raise Exception('No Key has been generated. Please generate a key')
+        else:
+            raise Exception('No text has been encrypted. Please encrypt a text')
 
 
 class ShelfHandle:
@@ -95,12 +162,17 @@ class ShelfHandle:
 
         return myitem
 
-    def add_item(self, key, val=None, inputmsg=None):
+    def add_item(self, key, val=None, inputmsg=None, encrypt=False):
         if key:
             sfile = shelve.open(self.filepath)
             type(sfile)
 
             if key not in sfile.keys():
+                if encrypt:
+                    myobj = CryptHandle()
+                else:
+                    myobj = None
+
                 if not val:
                     myinput = None
 
@@ -111,7 +183,14 @@ class ShelfHandle:
                             print("Please input value for {}:".format(key))
                         myinput = input()
 
-                    sfile[key] = myinput
+                    if myobj:
+                        myobj.encrypt_text(myinput)
+                        sfile[key] = myobj
+                    else:
+                        sfile[key] = myinput
+                elif myobj:
+                    myobj.encrypt_text(val)
+                    sfile[key] = val
                 else:
                     sfile[key] = val
 
@@ -229,19 +308,22 @@ class SQLHandle:
                 self.create_conn_str(server=self.server, database=self.database)
             else:
                 if not self.settingsobj.grab_item('Server') and not self.settingsobj.grab_item('Database'):
-                    self.settingsobj.add_item('Server', inputmsg='Please input Server to store in settings:')
-                    self.settingsobj.add_item('Database', inputmsg='Please input Database name to store in settings:')
+                    self.settingsobj.add_item('Server', inputmsg='Please input Server to store in settings:',
+                                              encrypt=True)
+                    self.settingsobj.add_item('Database', inputmsg='Please input Database name to store in settings:',
+                                              encrypt=True)
 
-                self.create_conn_str(server=self.settingsobj.grab_item('Server')
-                                     , database=self.settingsobj.grab_item('Database'))
+                self.create_conn_str(server=self.settingsobj.grab_item('Server').decrypt_text()
+                                     , database=self.settingsobj.grab_item('Database').decrypt_text())
         elif self.conn_type == 'dsn':
             if self.dsn:
                 self.create_conn_str(dsn=self.dsn)
             else:
-                if not self.settingsobj.grab_item('DSN'):
-                    self.settingsobj.add_item('DSN', inputmsg='Please input DSN name to store in settings:')
+                if not self.settingsobj.grab_item('DSN').decrypt_text():
+                    self.settingsobj.add_item('DSN', inputmsg='Please input DSN name to store in settings:',
+                                              encrypt=True)
 
-                self.create_conn_str(dsn=self.settingsobj.grab_item('DSN'))
+                self.create_conn_str(dsn=self.settingsobj.grab_item('DSN').decrypt_text())
         else:
             self.create_conn_str()
 

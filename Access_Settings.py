@@ -318,6 +318,7 @@ class SettingsGUI:
                     configs.remove(config)
                     break
 
+
             Global_Objs['Local_Settings'].del_item('Accdb_Configs')
 
             if len(configs) > 0:
