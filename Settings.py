@@ -298,6 +298,8 @@ class SettingsGUI:
 
                 for col in self.acc_cols:
                     self.atc_list_box.insert('end', col)
+
+                self.atc_list_box.select_set(self.stc_list_sel)
             else:
                 self.atc_list_box.configure(state=DISABLED)
                 self.atcs_list_box.configure(state=DISABLED)
@@ -331,14 +333,18 @@ class SettingsGUI:
         if not myresults.empty:
             for col in myresults['Column_Name'].tolist():
                 self.stc_list_box.insert('end', col)
+
+            self.atc_list_box.select_set(self.stc_list_sel)
         else:
             messagebox.showerror('No Columns Error!', 'Table has no columns in SQL Server')
 
     def check_tbl_name(self, event):
         if self.stc_list_box.size() > 0:
+            self.stc_list_sel = 0
             self.stc_list_box.delete(0, self.stc_list_box.size() - 1)
 
         if self.stcs_list_box.size() > 0:
+            self.stcs_list_sel = 0
             self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
 
         if self.acc_table and self.sql_tbl_name.get()\
@@ -464,35 +470,119 @@ class SettingsGUI:
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_right_migrate(self):
-        print('migrate to right')
+        if self.atc_list_box.curselection():
+            self.atcs_list_box.insert('end', self.atc_list_box.get(self.atc_list_box.curselection()))
+            self.atc_list_box.delete(self.atc_list_box.curselection(), self.atc_list_box.curselection())
+
+            if self.atc_list_box.size() > 0:
+                if self.atc_list_sel > 0:
+                    self.atc_list_sel -= 1
+                self.atc_list_box.select_set(self.atc_list_sel)
+            else:
+                self.atc_list_sel = -1
+
+            if not self.atcs_list_box.curselection():
+                self.atcs_list_sel = 0
+                self.atcs_list_box.select_set(self.atcs_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_all_right_migrate(self):
-        print('migrate all to right')
+        if self.atc_list_box.size() > 0:
+            for i in range(self.atc_list_box.size()):
+                self.atcs_list_box.insert('end', self.atc_list_box.get(i))
+
+            self.atc_list_box.delete(0, self.atc_list_box.size() - 1)
+
+            if not self.atcs_list_box.curselection():
+                self.atcs_list_sel = 0
+                self.atcs_list_box.select_set(self.atcs_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_left_migrate(self):
-        print('migrate to left')
+        if self.atcs_list_box.curselection():
+            self.atc_list_box.insert('end', self.atcs_list_box.get(self.atcs_list_box.curselection()))
+            self.atcs_list_box.delete(self.atcs_list_box.curselection(), self.atcs_list_box.curselection())
+
+            if self.atcs_list_box.size() > 0:
+                if self.atcs_list_sel > 0:
+                    self.atcs_list_sel -= 1
+                self.atcs_list_box.select_set(self.atcs_list_sel)
+            else:
+                self.atcs_list_sel = -1
+
+            if not self.atc_list_box.curselection():
+                self.atc_list_sel = 0
+                self.atc_list_box.select_set(self.atc_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_all_left_migrate(self):
-        print('migrate all to left')
+        if self.atcs_list_box.size() > 0:
+            for i in range(self.atcs_list_box.size()):
+                self.atc_list_box.insert('end', self.atcs_list_box.get(i))
+
+            self.atcs_list_box.delete(0, self.atcs_list_box.size() - 1)
+
+            if not self.atc_list_box.curselection():
+                self.atc_list_sel = 0
+                self.atc_list_box.select_set(self.atc_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_right_migrate(self):
-        print('migrate to right')
+        if self.stc_list_box.curselection():
+            self.stcs_list_box.insert('end', self.stc_list_box.get(self.stc_list_box.curselection()))
+            self.stc_list_box.delete(self.stc_list_box.curselection(), self.stc_list_box.curselection())
+
+            if self.stc_list_box.size() > 0:
+                if self.stc_list_sel > 0:
+                    self.stc_list_sel -= 1
+                self.stc_list_box.select_set(self.stc_list_sel)
+            else:
+                self.stc_list_sel = -1
+
+            if not self.stcs_list_box.curselection():
+                self.stcs_list_sel = 0
+                self.stcs_list_box.select_set(self.stcs_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_all_right_migrate(self):
-        print('migrate all to right')
+        if self.stc_list_box.size() > 0:
+            for i in range(self.stc_list_box.size()):
+                self.stcs_list_box.insert('end', self.stc_list_box.get(i))
+
+            self.stc_list_box.delete(0, self.stc_list_box.size() - 1)
+
+            if not self.stcs_list_box.curselection():
+                self.stcs_list_sel = 0
+                self.stcs_list_box.select_set(self.stcs_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_left_migrate(self):
-        print('migrate to left')
+        if self.stcs_list_box.curselection():
+            self.stc_list_box.insert('end', self.stcs_list_box.get(self.stcs_list_box.curselection()))
+            self.stcs_list_box.delete(self.stcs_list_box.curselection(), self.stcs_list_box.curselection())
+
+            if self.stcs_list_box.size() > 0:
+                if self.stcs_list_sel > 0:
+                    self.stcs_list_sel -= 1
+                self.stcs_list_box.select_set(self.stcs_list_sel)
+            else:
+                self.stcs_list_sel = -1
+
+            if not self.stc_list_box.curselection():
+                self.stc_list_sel = 0
+                self.stc_list_box.select_set(self.stc_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_all_left_migrate(self):
-        print('migrate all to left')
+        if self.stcs_list_box.size() > 0:
+            for i in range(self.stcs_list_box.size()):
+                self.stc_list_box.insert('end', self.stcs_list_box.get(i))
+
+            self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
+
+            if not self.stc_list_box.curselection():
+                self.stc_list_sel = 0
+                self.stc_list_box.select_set(self.stc_list_sel)
 
     # Function to save settings when the Save Settings button is pressed
     def save_settings(self):
