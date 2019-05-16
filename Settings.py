@@ -3,9 +3,9 @@ from tkinter import *
 from tkinter import messagebox
 from Global import grabobjs
 from Global import CryptHandle
-from Global import ShelfHandle
 
 import os
+import pandas as pd
 
 # Global Variable declaration
 curr_dir = os.path.dirname(os.path.abspath(__file__))
@@ -33,6 +33,7 @@ class SettingsGUI:
     sql_left_button = None
     sql_all_left_button = None
     sql_tbl_name_txtbox = None
+    complete_sql_tbl_list = pd.DataFrame()
 
     # Function that is executed upon creation of SettingsGUI class
     def __init__(self):
@@ -69,6 +70,25 @@ class SettingsGUI:
 
         global_objs[setting_list].del_item(key)
         global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
+
+    # Function to validate whether a SQL table exists in SQL server
+    def grab_tables(self):
+        self.complete_sql_tbl_list = self.asql.query('''
+            SELECT
+                CONCAT(Table_Schema, '.', Table_Name)
+            FROM information_schema.tables''')
+
+    # Function to connect to SQL connection for this class
+    def sql_connect(self):
+        if self.asql.test_conn('alch'):
+            self.asql.connect('alch')
+            return True
+        else:
+            return False
+
+    # Function to close SQL connection for this class
+    def sql_close(self):
+        self.asql.close()
 
     # Function to build GUI for settings
     def build_gui(self, header=None, insert=False):
@@ -178,6 +198,7 @@ class SettingsGUI:
         self.sql_tbl_name_txtbox = Entry(sql_tbl_top_frame, textvariable=self.sql_tbl_name, width=64)
         sql_tbl_name_label.grid(row=0, column=0, padx=8, pady=5)
         self.sql_tbl_name_txtbox.grid(row=0, column=1, padx=5, pady=5)
+        self.sql_tbl_name_txtbox.bind('<KeyRelease>', self.check_tbl_name)
 
         #     SQL Table Column List
         stc_xscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='horizontal')
@@ -243,10 +264,6 @@ class SettingsGUI:
 
         if not self.server.get() or not self.database.get() or not self.asql.test_conn('alch'):
             self.save_button.configure(state=DISABLED)
-        else:
-            self.asql.connect('alch')
-
-        if not self.insert:
             self.atc_list_box.configure(state=DISABLED)
             self.atcs_list_box.configure(state=DISABLED)
             self.acc_right_button.configure(state=DISABLED)
@@ -254,6 +271,18 @@ class SettingsGUI:
             self.acc_left_button.configure(state=DISABLED)
             self.acc_all_left_button.configure(state=DISABLED)
             self.sql_tbl_name_txtbox.configure(state=DISABLED)
+        else:
+            self.asql.connect('alch')
+            self.grab_tables()
+
+            if not self.insert:
+                self.atc_list_box.configure(state=DISABLED)
+                self.atcs_list_box.configure(state=DISABLED)
+                self.acc_right_button.configure(state=DISABLED)
+                self.acc_all_right_button.configure(state=DISABLED)
+                self.acc_left_button.configure(state=DISABLED)
+                self.acc_all_left_button.configure(state=DISABLED)
+                self.sql_tbl_name_txtbox.configure(state=DISABLED)
 
         self.stc_list_box.configure(state=DISABLED)
         self.stcs_list_box.configure(state=DISABLED)
@@ -261,6 +290,15 @@ class SettingsGUI:
         self.sql_all_right_button.configure(state=DISABLED)
         self.sql_left_button.configure(state=DISABLED)
         self.sql_all_left_button.configure(state=DISABLED)
+
+    def check_tbl_name(self, event):
+        if self.insert and self.sql_tbl_name.get():
+            self.stc_list_box.configure(state=NORMAL)
+            self.stcs_list_box.configure(state=NORMAL)
+            self.sql_right_button.configure(state=NORMAL)
+            self.sql_all_right_button.configure(state=NORMAL)
+            self.sql_left_button.configure(state=NORMAL)
+            self.sql_all_left_button.configure(state=NORMAL)
 
     # Function to check network settings if populated
     def check_network(self, event):
@@ -274,40 +312,16 @@ class SettingsGUI:
                 self.add_setting('Settings', self.server.get(), 'Server')
                 self.add_setting('Settings', self.database.get(), 'Database')
                 self.asql.connect('alch')
+                self.grab_tables()
 
-    # Function to validate whether a SQL table exists in SQL server
-    def check_table(self, table):
-        table2 = table.split('.')
-
-        if len(table2) == 2:
-            myresults = self.asql.query('''
-                SELECT
-                    1
-                FROM information_schema.tables
-                WHERE
-                    Table_Schema = '{0}'
-                        AND
-                    Table_Name = '{1}'
-            '''.format(table2[0], table2[1]))
-
-            if myresults.empty:
-                return False
-            else:
-                return True
-        else:
-            return False
-
-    # Function to connect to SQL connection for this class
-    def sql_connect(self):
-        if self.asql.test_conn('alch'):
-            self.asql.connect('alch')
-            return True
-        else:
-            return False
-
-    # Function to close SQL connection for this class
-    def sql_close(self):
-        self.asql.close()
+                if self.insert:
+                    self.atc_list_box.configure(state=NORMAL)
+                    self.atcs_list_box.configure(state=NORMAL)
+                    self.acc_right_button.configure(state=NORMAL)
+                    self.acc_all_right_button.configure(state=NORMAL)
+                    self.acc_left_button.configure(state=NORMAL)
+                    self.acc_all_left_button.configure(state=NORMAL)
+                    self.sql_tbl_name_txtbox.configure(state=NORMAL)
 
     # Function adjusts selection of item when user clicks item (ATC List)
     def atc_select(self, event):
