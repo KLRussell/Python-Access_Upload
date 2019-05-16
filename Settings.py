@@ -483,7 +483,6 @@ class SettingsGUI:
 
             if not self.atcs_list_box.curselection():
                 self.atcs_list_sel = 0
-                self.atcs_list_box.select_set(self.atcs_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_all_right_migrate(self):
@@ -495,7 +494,6 @@ class SettingsGUI:
 
             if not self.atcs_list_box.curselection():
                 self.atcs_list_sel = 0
-                self.atcs_list_box.select_set(self.atcs_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_left_migrate(self):
@@ -512,7 +510,6 @@ class SettingsGUI:
 
             if not self.atc_list_box.curselection():
                 self.atc_list_sel = 0
-                self.atc_list_box.select_set(self.atc_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_all_left_migrate(self):
@@ -524,7 +521,6 @@ class SettingsGUI:
 
             if not self.atc_list_box.curselection():
                 self.atc_list_sel = 0
-                self.atc_list_box.select_set(self.atc_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_right_migrate(self):
@@ -541,7 +537,6 @@ class SettingsGUI:
 
             if not self.stcs_list_box.curselection():
                 self.stcs_list_sel = 0
-                self.stcs_list_box.select_set(self.stcs_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_all_right_migrate(self):
@@ -553,7 +548,6 @@ class SettingsGUI:
 
             if not self.stcs_list_box.curselection():
                 self.stcs_list_sel = 0
-                self.stcs_list_box.select_set(self.stcs_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_left_migrate(self):
@@ -570,7 +564,6 @@ class SettingsGUI:
 
             if not self.stc_list_box.curselection():
                 self.stc_list_sel = 0
-                self.stc_list_box.select_set(self.stc_list_sel)
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_all_left_migrate(self):
