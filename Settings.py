@@ -14,7 +14,8 @@ global_objs = grabobjs(main_dir)
 
 
 class SettingsGUI:
-    insert = False
+    acc_table = None
+    acc_cols = None
     atc_list_sel = 0
     atcs_list_sel = 0
     stc_list_sel = 0
@@ -91,12 +92,13 @@ class SettingsGUI:
         self.asql.close()
 
     # Function to build GUI for settings
-    def build_gui(self, header=None, insert=False):
+    def build_gui(self, header=None, acc_table=None, acc_cols=None):
         # Change to custom header title if specified
         if header:
             self.header_text = header
 
-        self.insert = insert
+        self.acc_table = acc_table
+        self.acc_cols = acc_cols
 
         # Set GUI Geometry and GUI Title
         self.main.geometry('520x682+500+80')
@@ -291,7 +293,12 @@ class SettingsGUI:
             self.asql.connect('alch')
             self.grab_tables()
 
-            if not self.insert:
+            if self.acc_table:
+                self.acc_tbl_name.set(self.acc_table)
+
+                for col in self.acc_cols:
+                    self.atc_list_box.insert('end', col)
+            else:
                 self.atc_list_box.configure(state=DISABLED)
                 self.atcs_list_box.configure(state=DISABLED)
                 self.acc_right_button.configure(state=DISABLED)
@@ -334,7 +341,7 @@ class SettingsGUI:
         if self.stcs_list_box.size() > 0:
             self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
 
-        if self.insert and self.sql_tbl_name.get()\
+        if self.acc_table and self.sql_tbl_name.get()\
                     and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
                                                        == self.sql_tbl_name.get().lower()]) > 0:
             self.stc_list_box.configure(state=NORMAL)
@@ -366,7 +373,7 @@ class SettingsGUI:
                 self.asql.connect('alch')
                 self.grab_tables()
 
-                if self.insert:
+                if self.acc_table:
                     self.atc_list_box.configure(state=NORMAL)
                     self.atcs_list_box.configure(state=NORMAL)
                     self.acc_right_button.configure(state=NORMAL)
@@ -535,6 +542,6 @@ if __name__ == '__main__':
     obj = SettingsGUI()
 
     try:
-        obj.build_gui(insert=True)
+        obj.build_gui(acc_table='Granite Dispute Tracking Dbase Updated Records', acc_cols=['Vendor', 'Platform'])
     finally:
         obj.sql_close()
