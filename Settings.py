@@ -207,7 +207,7 @@ class SettingsGUI:
         extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
         #     Extract Shelf Button
-        extract_button = Button(self.main, text='Extract Shelf', width=15, command=self.extract_shelf)
+        extract_button = Button(self.main, text='Upload Settings', width=15, command=self.upload_settings)
         extract_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
 
         # Fill Textboxes with settings
@@ -336,7 +336,7 @@ class SettingsGUI:
                     self.main.destroy()
 
     # Function to load extract Shelf GUI
-    def extract_shelf(self):
+    def upload_settings(self):
         if self.shelf_obj:
             self.shelf_obj.cancel()
 
