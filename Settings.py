@@ -14,6 +14,7 @@ global_objs = grabobjs(main_dir)
 
 
 class SettingsGUI:
+    insert = False
     atc_list_sel = 0
     atcs_list_sel = 0
     stc_list_sel = 0
@@ -31,6 +32,7 @@ class SettingsGUI:
     sql_all_right_button = None
     sql_left_button = None
     sql_all_left_button = None
+    sql_tbl_name_txtbox = None
 
     # Function that is executed upon creation of SettingsGUI class
     def __init__(self):
@@ -69,10 +71,12 @@ class SettingsGUI:
         global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
 
     # Function to build GUI for settings
-    def build_gui(self, header=None):
+    def build_gui(self, header=None, insert=False):
         # Change to custom header title if specified
         if header:
             self.header_text = header
+
+        self.insert = insert
 
         # Set GUI Geometry and GUI Title
         self.main.geometry('497x645+500+90')
@@ -171,9 +175,9 @@ class SettingsGUI:
         # Apply Widgets to the SQL_TBL_Frame
         #     SQL Table Name Input Box
         sql_tbl_name_label = Label(sql_tbl_top_frame, text='TBL Name:')
-        sql_tbl_name_txtbox = Entry(sql_tbl_top_frame, textvariable=self.sql_tbl_name, width=64)
+        self.sql_tbl_name_txtbox = Entry(sql_tbl_top_frame, textvariable=self.sql_tbl_name, width=64)
         sql_tbl_name_label.grid(row=0, column=0, padx=8, pady=5)
-        sql_tbl_name_txtbox.grid(row=0, column=1, padx=5, pady=5)
+        self.sql_tbl_name_txtbox.grid(row=0, column=1, padx=5, pady=5)
 
         #     SQL Table Column List
         stc_xscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='horizontal')
@@ -227,7 +231,7 @@ class SettingsGUI:
         extract_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
 
         # Fill Textboxes with settings
-        # self.fill_gui()
+        self.fill_gui()
 
         # Show GUI Dialog
         self.main.mainloop()
@@ -241,6 +245,22 @@ class SettingsGUI:
             self.save_button.configure(state=DISABLED)
         else:
             self.asql.connect('alch')
+
+        if not self.insert:
+            self.atc_list_box.configure(state=DISABLED)
+            self.atcs_list_box.configure(state=DISABLED)
+            self.acc_right_button.configure(state=DISABLED)
+            self.acc_all_right_button.configure(state=DISABLED)
+            self.acc_left_button.configure(state=DISABLED)
+            self.acc_all_left_button.configure(state=DISABLED)
+            self.sql_tbl_name_txtbox.configure(state=DISABLED)
+
+        self.stc_list_box.configure(state=DISABLED)
+        self.stcs_list_box.configure(state=DISABLED)
+        self.sql_right_button.configure(state=DISABLED)
+        self.sql_all_right_button.configure(state=DISABLED)
+        self.sql_left_button.configure(state=DISABLED)
+        self.sql_all_left_button.configure(state=DISABLED)
 
     # Function to check network settings if populated
     def check_network(self, event):
