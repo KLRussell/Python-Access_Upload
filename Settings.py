@@ -16,6 +16,17 @@ global_objs = grabobjs(main_dir)
 class SettingsGUI:
     save_button = None
     atc_list_box = None
+    atcs_list_box = None
+    acc_right_button = None
+    acc_all_right_button = None
+    acc_left_button = None
+    acc_all_left_button = None
+    stc_list_box = None
+    stcs_list_box = None
+    sql_right_button = None
+    sql_all_right_button = None
+    sql_left_button = None
+    sql_all_left_button = None
 
     # Function that is executed upon creation of SettingsGUI class
     def __init__(self):
@@ -26,7 +37,8 @@ class SettingsGUI:
         # GUI Variables
         self.server = StringVar()
         self.database = StringVar()
-        self.tbl_name = StringVar()
+        self.acc_tbl_name = StringVar()
+        self.sql_tbl_name = StringVar()
 
         # GUI Bind On Destruction event
         self.main.bind('<Destroy>', self.gui_destroy)
@@ -59,7 +71,7 @@ class SettingsGUI:
             self.header_text = header
 
         # Set GUI Geometry and GUI Title
-        self.main.geometry('444x357+500+160')
+        self.main.geometry('497x645+500+90')
         self.main.title('Access DB Upload Settings')
         self.main.resizable(False, False)
 
@@ -71,6 +83,8 @@ class SettingsGUI:
         acc_tbl_top_frame = Frame(acc_tbl_frame)
         acc_tbl_bottom_frame = Frame(acc_tbl_frame)
         sql_tbl_frame = LabelFrame(add_upload_frame, text='SQL Table', width=444, height=105)
+        sql_tbl_top_frame = Frame(sql_tbl_frame)
+        sql_tbl_bottom_frame = Frame(sql_tbl_frame)
         button_frame = Frame(self.main)
 
         # Apply Frames into GUI
@@ -78,9 +92,11 @@ class SettingsGUI:
         network_frame.pack(fill="both")
         add_upload_frame.pack(fill="both")
         acc_tbl_frame.grid(row=0)
-        acc_tbl_top_frame.grid(row=0)
-        acc_tbl_bottom_frame.grid(row=1)
+        acc_tbl_top_frame.grid(row=0, sticky=W+E)
+        acc_tbl_bottom_frame.grid(row=1, sticky=W+E)
         sql_tbl_frame.grid(row=1)
+        sql_tbl_top_frame.grid(row=0, sticky=W + E)
+        sql_tbl_bottom_frame.grid(row=1, sticky=W + E)
         button_frame.pack(fill="both")
 
         # Apply Header text to Header_Frame that describes purpose of GUI
@@ -104,22 +120,82 @@ class SettingsGUI:
 
         # Apply Widgets to the Acc_TBL_Frame
         #     Access Table Name Input Box
-        tbl_name_label = Label(acc_tbl_top_frame, text='TBL Name:')
-        tbl_name_txtbox = Entry(acc_tbl_top_frame, textvariable=self.tbl_name, width=55)
-        tbl_name_label.grid(row=0, column=0, padx=8, pady=5)
-        tbl_name_txtbox.grid(row=0, column=0, padx=5, pady=5)
-        tbl_name_txtbox.configure(state=DISABLED)
+        acc_tbl_name_label = Label(acc_tbl_top_frame, text='TBL Name:')
+        acc_tbl_name_txtbox = Entry(acc_tbl_top_frame, textvariable=self.acc_tbl_name, width=64)
+        acc_tbl_name_label.grid(row=0, column=0, padx=8, pady=5)
+        acc_tbl_name_txtbox.grid(row=0, column=1, padx=5, pady=5)
+        acc_tbl_name_txtbox.configure(state=DISABLED)
 
         #     Access Table Column List
         atc_xscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='horizontal')
         atc_yscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='vertical')
-        self.atc_list_box = Listbox(acc_tbl_bottom_frame, selectmode=SINGLE, width=35, yscrollcommand=atc_yscrollbar,
+        self.atc_list_box = Listbox(acc_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=atc_yscrollbar,
                                     xscrollcommand=atc_xscrollbar)
         atc_xscrollbar.config(command=self.atc_list_box.xview)
         atc_yscrollbar.config(command=self.atc_list_box.yview)
         self.atc_list_box.grid(row=0, column=0, rowspan=4, padx=8, pady=5)
-        atc_xscrollbar.grid(row=5, column=0, sticky=W+E)
+        atc_xscrollbar.grid(row=4, column=0, sticky=W+E)
         atc_yscrollbar.grid(row=0, column=1, rowspan=4, sticky=N+S)
+
+        #     Access Column Migration Buttons
+        self.acc_right_button = Button(acc_tbl_bottom_frame, text='>', width=5, command=self.acc_right_migrate)
+        self.acc_all_right_button = Button(acc_tbl_bottom_frame, text='>>', width=5, command=self.acc_all_right_migrate)
+        self.acc_left_button = Button(acc_tbl_bottom_frame, text='<', width=5, command=self.acc_left_migrate)
+        self.acc_all_left_button = Button(acc_tbl_bottom_frame, text='<<', width=5, command=self.acc_all_left_migrate)
+        self.acc_right_button.grid(row=0, column=2, padx=5)
+        self.acc_all_right_button.grid(row=1, column=2, padx=5)
+        self.acc_left_button.grid(row=2, column=2, padx=5)
+        self.acc_all_left_button.grid(row=3, column=2, padx=5)
+
+        #     Access Table Column Selection List
+        atcs_xscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='horizontal')
+        atcs_yscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='vertical')
+        self.atcs_list_box = Listbox(acc_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=atcs_yscrollbar,
+                                     xscrollcommand=atcs_xscrollbar)
+        atcs_xscrollbar.config(command=self.atcs_list_box.xview)
+        atcs_yscrollbar.config(command=self.atcs_list_box.yview)
+        self.atcs_list_box.grid(row=0, column=3, rowspan=4, padx=8, pady=5)
+        atcs_xscrollbar.grid(row=4, column=3, sticky=W + E)
+        atcs_yscrollbar.grid(row=0, column=4, rowspan=4, sticky=N + S)
+
+        # Apply Widgets to the SQL_TBL_Frame
+        #     SQL Table Name Input Box
+        sql_tbl_name_label = Label(sql_tbl_top_frame, text='TBL Name:')
+        sql_tbl_name_txtbox = Entry(sql_tbl_top_frame, textvariable=self.sql_tbl_name, width=64)
+        sql_tbl_name_label.grid(row=0, column=0, padx=8, pady=5)
+        sql_tbl_name_txtbox.grid(row=0, column=1, padx=5, pady=5)
+
+        #     SQL Table Column List
+        stc_xscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='horizontal')
+        stc_yscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='vertical')
+        self.stc_list_box = Listbox(sql_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=stc_yscrollbar,
+                                    xscrollcommand=stc_xscrollbar)
+        stc_xscrollbar.config(command=self.stc_list_box.xview)
+        stc_yscrollbar.config(command=self.stc_list_box.yview)
+        self.stc_list_box.grid(row=0, column=0, rowspan=4, padx=8, pady=5)
+        stc_xscrollbar.grid(row=4, column=0, sticky=W + E)
+        stc_yscrollbar.grid(row=0, column=1, rowspan=4, sticky=N + S)
+
+        #     SQL Column Migration Buttons
+        self.sql_right_button = Button(sql_tbl_bottom_frame, text='>', width=5, command=self.sql_right_migrate)
+        self.sql_all_right_button = Button(sql_tbl_bottom_frame, text='>>', width=5, command=self.sql_all_right_migrate)
+        self.sql_left_button = Button(sql_tbl_bottom_frame, text='<', width=5, command=self.sql_left_migrate)
+        self.sql_all_left_button = Button(sql_tbl_bottom_frame, text='<<', width=5, command=self.sql_all_left_migrate)
+        self.sql_right_button.grid(row=0, column=2, padx=5)
+        self.sql_all_right_button.grid(row=1, column=2, padx=5)
+        self.sql_left_button.grid(row=2, column=2, padx=5)
+        self.sql_all_left_button.grid(row=3, column=2, padx=5)
+
+        #     SQL Table Column Selection List
+        stcs_xscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='horizontal')
+        stcs_yscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='vertical')
+        self.stcs_list_box = Listbox(sql_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=stcs_yscrollbar,
+                                     xscrollcommand=atcs_xscrollbar)
+        stcs_xscrollbar.config(command=self.stcs_list_box.xview)
+        stcs_yscrollbar.config(command=self.stcs_list_box.yview)
+        self.stcs_list_box.grid(row=0, column=3, rowspan=4, padx=8, pady=5)
+        stcs_xscrollbar.grid(row=4, column=3, sticky=W + E)
+        stcs_yscrollbar.grid(row=0, column=4, rowspan=4, sticky=N + S)
 
         # Apply Buttons to Button_Frame
         #     Save Button
@@ -135,7 +211,7 @@ class SettingsGUI:
         extract_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
 
         # Fill Textboxes with settings
-        self.fill_gui()
+        # self.fill_gui()
 
         # Show GUI Dialog
         self.main.mainloop()
@@ -196,6 +272,38 @@ class SettingsGUI:
     # Function to close SQL connection for this class
     def sql_close(self):
         self.asql.close()
+
+    # Button to migrate single record to right list (Access TBL Section)
+    def acc_right_migrate(self):
+        print('migrate to right')
+
+    # Button to migrate single record to right list (Access TBL Section)
+    def acc_all_right_migrate(self):
+        print('migrate all to right')
+
+    # Button to migrate single record to right list (Access TBL Section)
+    def acc_left_migrate(self):
+        print('migrate to left')
+
+    # Button to migrate single record to right list (Access TBL Section)
+    def acc_all_left_migrate(self):
+        print('migrate all to left')
+
+    # Button to migrate single record to right list (SQL TBL Section)
+    def sql_right_migrate(self):
+        print('migrate to right')
+
+    # Button to migrate single record to right list (SQL TBL Section)
+    def sql_all_right_migrate(self):
+        print('migrate all to right')
+
+    # Button to migrate single record to right list (SQL TBL Section)
+    def sql_left_migrate(self):
+        print('migrate to left')
+
+    # Button to migrate single record to right list (SQL TBL Section)
+    def sql_all_left_migrate(self):
+        print('migrate all to left')
 
     # Function to save settings when the Save Settings button is pressed
     def save_settings(self):

@@ -6,6 +6,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+import traceback
+import xml.etree.ElementTree as ET
 import pathlib as pl
 import pandas as pd
 import sqlalchemy as mysql
@@ -52,7 +54,7 @@ def grabobjs(scriptdir):
             myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
 
         myobjs['Event_Log'] = LogHandle(scriptdir)
-        myobjs['SQL'] = SQLHandle(myobjs['Settings'])
+        myobjs['SQL'] = SQLHandle(logobj=myobjs['Event_Log'], settingsobj=myobjs['Settings'])
         myobjs['Errors'] = ErrHandle(myobjs['Event_Log'])
 
         return myobjs
@@ -86,17 +88,29 @@ class CryptHandle:
 
         self.key = base64.urlsafe_b64encode(kdf.derive(etext))
 
-    def encrypt_text(self, text):
-        if not self.key:
-            self.create_key()
+    @staticmethod
+    def code_method(obj):
+        if isinstance(obj, int):
+            return obj.to_bytes(4, byteorder='big', signed=True)
+        elif isinstance(obj, str):
+            return obj.encode()
+        else:
+            return obj.decode()
 
-        crypt_obj = Fernet(self.key)
-        self.encrypted_text = crypt_obj.encrypt(text.encode())
+    def encrypt_text(self, item):
+        if isinstance(item, int) or isinstance(item, str):
+            if not self.key:
+                self.create_key()
+
+            crypt_obj = Fernet(self.key)
+            self.encrypted_text = crypt_obj.encrypt(self.code_method(item))
+        else:
+            raise Exception('Invalid data type for encryption')
 
     def decrypt_text(self):
         if self.key and self.encrypted_text:
             crypt_obj = Fernet(self.key)
-            return crypt_obj.decrypt(self.encrypted_text).decode()
+            return self.code_method(crypt_obj.decrypt(self.encrypted_text))
 
     def grab_items(self):
         return [self.key, self.encrypted_text]
@@ -190,7 +204,7 @@ class ShelfHandle:
                         sfile[key] = myinput
                 elif myobj:
                     myobj.encrypt_text(val)
-                    sfile[key] = val
+                    sfile[key] = myobj
                 else:
                     sfile[key] = val
 
@@ -271,6 +285,9 @@ class LogHandle:
 
 
 class SQLHandle:
+    server = None
+    database = None
+    dsn = None
     conn_type = None
     conn_str = None
     session = False
@@ -278,141 +295,98 @@ class SQLHandle:
     conn = None
     cursor = None
 
-    def __init__(self, settingsobj):
+    def __init__(self, logobj=None, settingsobj=None, server=None, database=None, dsn=None, accdb_file=None):
         if settingsobj:
-            self.settingsobj = settingsobj
+            if settingsobj.grab_item('Server'):
+                self.server = settingsobj.grab_item('Server').decrypt_text()
+            if settingsobj.grab_item('Database'):
+                self.database = settingsobj.grab_item('Database').decrypt_text()
+            if settingsobj.grab_item('DSN'):
+                self.dsn = settingsobj.grab_item('DSN').decrypt_text()
+        elif server and database:
+            self.server = server
+            self.database = database
+        elif dsn:
+            self.dsn = dsn
+        elif accdb_file:
+            self.accdb_file = accdb_file
         else:
-            raise Exception('Settings object not included in parameter')
+            raise Exception('Invalid connection variables passed')
 
-    def create_conn_str(self, server=None, database=None, dsn=None):
+        if logobj:
+            self.logobj = logobj
+
+    def change_config(self, settingsobj=None, server=None, database=None, dsn=None, accdb_file=None):
+        if settingsobj:
+            self.server = settingsobj.grab_item('Server').decrypt_text()
+            self.database = settingsobj.grab_item('Database').decrypt_text()
+            self.dsn = settingsobj.grab_item('DSN').decrypt_text()
+        elif server and database:
+            self.server = server
+            self.database = database
+        elif dsn:
+            self.dsn = dsn
+        elif accdb_file:
+            self.accdb_file = accdb_file
+        else:
+            raise Exception('Invalid connection variables passed')
+
+    def create_conn_str(self):
         if self.conn_type == 'alch':
+            assert(self.server and self.database)
             p = quote_plus(
                 'DRIVER={};PORT={};SERVER={};DATABASE={};Trusted_Connection=yes;'
-                    .format('{SQL Server Native Client 11.0}', '1433', server, database))
+                    .format('{SQL Server Native Client 11.0}', '1433', self.server, self.database))
 
             self.conn_str = '{}+pyodbc:///?odbc_connect={}'.format('mssql', p)
         elif self.conn_type == 'sql':
+            assert(self.server and self.database)
             self.conn_str = 'driver={0};server={1};database={2};autocommit=True;Trusted_Connection=yes'\
-                .format('{SQL Server}', server, database)
+                .format('{SQL Server}', self.server, self.database)
         elif self.conn_type == 'accdb':
+            assert self.accdb_file
             self.conn_str = 'DRIVER={};DBQ={};Exclusive=1'.format('{Microsoft Access Driver (*.mdb, *.accdb)}',
                                                                   self.accdb_file)
         elif self.conn_type == 'dsn':
-            self.conn_str = 'DSN={};DATABASE=default;Trusted_Connection=Yes;'.format(dsn)
+            assert self.dsn
+            self.conn_str = 'DSN={};DATABASE=default;Trusted_Connection=Yes;'.format(self.dsn)
         else:
             raise Exception('Invalid conn_type specified')
 
-    def val_settings(self):
-        if self.conn_type in ['alch', 'sql']:
-            if self.server and self.database:
-                self.create_conn_str(server=self.server, database=self.database)
-            else:
-                if not self.settingsobj.grab_item('Server') and not self.settingsobj.grab_item('Database'):
-                    self.settingsobj.add_item('Server', inputmsg='Please input Server to store in settings:',
-                                              encrypt=True)
-                    self.settingsobj.add_item('Database', inputmsg='Please input Database name to store in settings:',
-                                              encrypt=True)
+    def test_conn(self, conn_type=None):
+        assert(conn_type or self.conn_type)
 
-                self.create_conn_str(server=self.settingsobj.grab_item('Server').decrypt_text()
-                                     , database=self.settingsobj.grab_item('Database').decrypt_text())
-        elif self.conn_type == 'dsn':
-            if self.dsn:
-                self.create_conn_str(dsn=self.dsn)
-            else:
-                if not self.settingsobj.grab_item('DSN').decrypt_text():
-                    self.settingsobj.add_item('DSN', inputmsg='Please input DSN name to store in settings:',
-                                              encrypt=True)
+        if conn_type:
+            self.conn_type = conn_type
 
-                self.create_conn_str(dsn=self.settingsobj.grab_item('DSN').decrypt_text())
-        else:
-            self.create_conn_str()
+        self.create_conn_str()
 
-    def conn_chk(self):
-        exit_loop = False
+        myquery = "SELECT 1 from sys.sysprocesses"
 
-        while not exit_loop:
-            self.val_settings()
-            myquery = "SELECT 1 from sys.sysprocesses"
-
+        try:
             if self.conn_type == 'alch':
                 self.engine = mysql.create_engine(self.conn_str)
+                obj = self.engine.execute(mysql.text(myquery))
+                if obj._saved_cursor.arraysize > 0:
+                    self.close()
+                    return True
             else:
                 self.conn = pyodbc.connect(self.conn_str)
                 self.cursor = self.conn.cursor()
                 self.conn.commit()
 
-            try:
-                if self.conn_type == 'alch':
-                    obj = self.engine.execute(mysql.text(myquery))
-
-                    if obj._saved_cursor.arraysize > 0:
-                        exit_loop = True
-                    else:
-                        if self.server:
-                            self.server = None
-                        if self.database:
-                            self.database = None
-                        if self.settingsobj.grab_item('Server'):
-                            self.settingsobj.del_item('Server')
-                        if self.settingsobj.grab_item('Database'):
-                            self.settingsobj.del_item('Database')
-                        print('Error! Server & Database combination are incorrect!')
-                elif self.conn_type == 'accdb':
-                    if len(self.get_accdb_tables()) > 0:
-                        exit_loop = True
-                    else:
-                        if self.accdb_file:
-                            self.accdb_file = None
-
-                        print('Error! Accdb is incorrect!')
+                if self.conn_type == 'accdb' and len(self.get_accdb_tables()) > 0:
+                    self.close()
+                    return True
                 else:
                     df = sql.read_sql(myquery, self.conn)
 
                     if len(df) > 0:
-                        exit_loop = True
-                    else:
-                        if self.conn_type == 'sql':
-                            if self.server:
-                                self.server = None
-                            if self.database:
-                                self.database = None
-                            if self.settingsobj.grab_item('Server'):
-                                self.settingsobj.del_item('Server')
-                            if self.settingsobj.grab_item('Database'):
-                                self.settingsobj.del_item('Database')
-                            print('Error! Server & Database combination are incorrect!')
-                        else:
-                            if self.dsn:
-                                self.dsn = None
-                            if self.settingsobj.grab_item('DSN'):
-                                self.settingsobj.del_item('DSN')
-
-                            print('Error! DSN is incorrect!')
-
-                self.close()
-
-            except ValueError as a:
-                if self.conn_type in ['alch', 'sql']:
-                    if self.server:
-                        self.server = None
-                    if self.database:
-                        self.database = None
-                    if self.settingsobj.grab_item('Server'):
-                        self.settingsobj.del_item('Server')
-                    if self.settingsobj.grab_item('Database'):
-                        self.settingsobj.del_item('Database')
-                    print('Error! Server & Database combination are incorrect!')
-                else:
-                    if self.dsn:
-                        self.dsn = None
-                    if self.settingsobj.grab_item('DSN'):
-                        self.settingsobj.del_item('DSN')
-                    if self.accdb_file:
-                        self.accdb_file = None
-
-                    print('Error! DSN is incorrect!')
-
-                self.close()
+                        self.close()
+                        return True
+        except:
+            self.close()
+            return False
 
     def get_accdb_tables(self):
         if self.conn_type == 'accdb':
@@ -425,42 +399,83 @@ class SQLHandle:
 
             return mylist
 
-    def connect(self, conn_type, server=None, database=None, dsn=None, accdb_file=None):
+    def connect(self, conn_type):
+        assert (conn_type or self.conn_type)
         self.conn_type = conn_type
-        self.server = server
-        self.database = database
-        self.dsn = dsn
-        self.accdb_file = accdb_file
-        self.conn_chk()
 
-        if self.conn_type == 'alch':
-            self.engine = mysql.create_engine(self.conn_str)
+        if self.test_conn():
+            self.close()
+
+            try:
+                if self.conn_type == 'alch':
+                    self.engine = mysql.create_engine(self.conn_str)
+                else:
+                    self.conn = pyodbc.connect(self.conn_str, autocommit=True)
+                    self.cursor = self.conn.cursor()
+                    self.conn.commit()
+            except:
+                self.close()
+                if self.logobj:
+                    self.logobj.write_log(traceback.format_exc(), 'critical')
+                else:
+                    print(traceback.format_exc())
+                raise Exception('Stopping script')
+        elif self.conn_type in ('alch', 'sql'):
+            self.server = None
+            self.database = None
+            raise Exception(
+                'Error 1 - Failed test connection to SQL Server. Server name {0} or database name {1} is incorrect'
+                    .format(self.server, self.database))
+        elif self.conn_type == 'accdb':
+            self.accdb_file = None
+            raise Exception(
+                'Error 1 - Failed test connection to access databse file {0}'.format(
+                    self.accdb_file))
         else:
-            self.conn = pyodbc.connect(self.conn_str, autocommit=True)
-            self.cursor = self.conn.cursor()
-            self.conn.commit()
+            self.dsn = None
+            raise Exception('Error 1 - Failed test connection to DSN connection {0}'.format(self.dsn))
 
     def close(self):
         if self.conn_type == 'alch':
-            self.engine.dispose()
+            if self.engine:
+                self.engine.dispose()
         else:
-            self.cursor.close()
-            self.conn.close()
+            if self.cursor:
+                self.cursor.close()
+
+            if self.conn:
+                self.conn.close()
 
     def createsession(self):
         if self.conn_type == 'alch':
-            self.engine = sessionmaker(bind=self.engine)
-            self.engine = self.engine()
-            self.engine._model_changes = {}
-            self.session = True
+            try:
+                self.engine = sessionmaker(bind=self.engine)
+                self.engine = self.engine()
+                self.engine._model_changes = {}
+                self.session = True
+            except:
+                self.close()
+                if self.logobj:
+                    self.logobj.write_log(traceback.format_exc(), 'critical')
+                else:
+                    print(traceback.format_exc())
+                raise Exception('Stopping script')
 
     def createtable(self, dataframe, sqltable):
         if self.conn_type == 'alch' and not self.session:
-            dataframe.to_sql(
-                sqltable,
-                self.engine,
-                if_exists='replace',
-            )
+            try:
+                dataframe.to_sql(
+                    sqltable,
+                    self.engine,
+                    if_exists='replace',
+                )
+            except:
+                self.close()
+                if self.logobj:
+                    self.logobj.write_log(traceback.format_exc(), 'critical')
+                else:
+                    print(traceback.format_exc())
+                raise Exception('Stopping script')
 
     def grabengine(self):
         if self.conn_type == 'alch':
@@ -471,25 +486,33 @@ class SQLHandle:
     def upload(self, dataframe, sqltable, index=True, index_label='linenumber'):
         if self.conn_type == 'alch' and not self.session:
             mytbl = sqltable.split(".")
-
-            if len(mytbl) > 1:
-                dataframe.to_sql(
-                    mytbl[1],
-                    self.engine,
-                    schema=mytbl[0],
-                    if_exists='append',
-                    index=index,
-                    index_label=index_label,
-                    chunksize=1000
-                )
-            else:
-                dataframe.to_sql(
-                    mytbl[0],
-                    self.engine,
-                    if_exists='replace',
-                    index=False,
-                    chunksize=1000
-                )
+            try:
+                if len(mytbl) > 1:
+                    dataframe.to_sql(
+                        mytbl[1],
+                        self.engine,
+                        schema=mytbl[0],
+                        if_exists='append',
+                        index=index,
+                        index_label=index_label,
+                        chunksize=1000
+                    )
+                else:
+                    dataframe.to_sql(
+                        mytbl[0],
+                        self.engine,
+                        if_exists='replace',
+                        index=False,
+                        chunksize=1000
+                    )
+                return True
+            except:
+                self.close()
+                if self.logobj:
+                    self.logobj.write_log(traceback.format_exc(), 'critical')
+                else:
+                    print(traceback.format_exc())
+                raise Exception('Stopping script')
 
     def query(self, query):
         try:
@@ -506,9 +529,13 @@ class SQLHandle:
                 df = sql.read_sql(query, self.conn)
                 return df
 
-        except ValueError as a:
-            print('\t[-] {} : SQL Query failed.'.format(a))
-            pass
+        except:
+            self.close()
+            if self.logobj:
+                self.logobj.write_log(traceback.format_exc(), 'critical')
+            else:
+                print(traceback.format_exc())
+            raise Exception('Stopping script')
 
     def execute(self, query):
         try:
@@ -517,9 +544,13 @@ class SQLHandle:
             else:
                 self.cursor.execute(query)
 
-        except ValueError as a:
-            print('\t[-] {} : SQL Execute failed.'.format(a))
-            pass
+        except:
+            self.close()
+            if self.logobj:
+                self.logobj.write_log(traceback.format_exc(), 'critical')
+            else:
+                print(traceback.format_exc())
+            raise Exception('Stopping script')
 
 
 class ErrHandle:
@@ -573,3 +604,76 @@ class ErrHandle:
             return mylist
         else:
             return None
+
+
+class XMLParseClass:
+    def __init__(self, file):
+        try:
+            tree = ET.parse(file)
+            self.root = tree.getroot()
+        except AssertionError as a:
+            print('\t[-] {} : Parse failed.'.format(a))
+            pass
+
+    def parseelement(self, element, parsed=None):
+        if parsed is None:
+            parsed = dict()
+
+        if element.keys():
+            for key in element.keys():
+                if key not in parsed:
+                    parsed[key] = element.attrib.get(key)
+
+                if element.text and element.tag not in parsed:
+                    parsed[element.tag] = element.text
+
+        elif element.text and element.tag not in parsed:
+            parsed[element.tag] = element.text
+
+        for child in list(element):
+            self.parseelement(child, parsed)
+        return parsed
+
+    def parsexml(self, findpath, dictvar=None):
+        if isinstance(dictvar, dict):
+            for item in self.root.findall(findpath):
+                dictvar = self.parseelement(item, dictvar)
+
+            return dictvar
+        else:
+            parsed = [self.parseelement(item) for item in self.root.findall(findpath)]
+            df = pd.DataFrame(parsed)
+
+            return df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+
+
+class XMLAppendClass:
+    def __init__(self, file):
+        self.file = file
+
+    def write_xml(self, df):
+        with open(self.file, 'w') as xmlFile:
+            xmlFile.write(
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+            )
+            xmlFile.write('<records>\n')
+
+            xmlFile.write(
+                '\n'.join(df.apply(self.xml_encode, axis=1))
+            )
+
+            xmlFile.write('\n</records>')
+
+    @staticmethod
+    def xml_encode(row):
+        xmlitem = ['  <record>']
+
+        for field in row.index:
+            if row[field]:
+                xmlitem \
+                    .append('    <var var_name="{0}">{1}</var>' \
+                            .format(field, row[field]))
+
+        xmlitem.append('  </record>')
+
+        return '\n'.join(xmlitem)
