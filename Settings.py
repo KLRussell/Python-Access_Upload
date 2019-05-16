@@ -99,7 +99,7 @@ class SettingsGUI:
         self.insert = insert
 
         # Set GUI Geometry and GUI Title
-        self.main.geometry('497x645+500+90')
+        self.main.geometry('520x682+500+80')
         self.main.title('Access DB Upload Settings')
         self.main.resizable(False, False)
 
@@ -109,10 +109,14 @@ class SettingsGUI:
         add_upload_frame = LabelFrame(self.main, text='Add Upload Settings', width=444, height=210)
         acc_tbl_frame = LabelFrame(add_upload_frame, text='Access Table', width=444, height=105)
         acc_tbl_top_frame = Frame(acc_tbl_frame)
-        acc_tbl_bottom_frame = Frame(acc_tbl_frame)
+        acc_tbl_bottom_left_frame = LabelFrame(acc_tbl_frame, text='Column List')
+        acc_tbl_bottom_right_frame = LabelFrame(acc_tbl_frame, text='Column Select List')
+        acc_tbl_bottom_middle_frame = Frame(acc_tbl_frame)
         sql_tbl_frame = LabelFrame(add_upload_frame, text='SQL Table', width=444, height=105)
         sql_tbl_top_frame = Frame(sql_tbl_frame)
-        sql_tbl_bottom_frame = Frame(sql_tbl_frame)
+        sql_tbl_bottom_left_frame = LabelFrame(sql_tbl_frame, text='Column List')
+        sql_tbl_bottom_right_frame = LabelFrame(sql_tbl_frame, text='Column Select List')
+        sql_tbl_bottom_middle_frame = Frame(sql_tbl_frame)
         button_frame = Frame(self.main)
 
         # Apply Frames into GUI
@@ -120,11 +124,15 @@ class SettingsGUI:
         network_frame.pack(fill="both")
         add_upload_frame.pack(fill="both")
         acc_tbl_frame.grid(row=0)
-        acc_tbl_top_frame.grid(row=0, sticky=W+E)
-        acc_tbl_bottom_frame.grid(row=1, sticky=W+E)
+        acc_tbl_top_frame.grid(row=0, column=0, columnspan=3, sticky=W+E)
+        acc_tbl_bottom_left_frame.grid(row=1, column=0)
+        acc_tbl_bottom_right_frame.grid(row=1, column=2, padx=5)
+        acc_tbl_bottom_middle_frame.grid(row=1, column=1, padx=5)
         sql_tbl_frame.grid(row=1)
-        sql_tbl_top_frame.grid(row=0, sticky=W + E)
-        sql_tbl_bottom_frame.grid(row=1, sticky=W + E)
+        sql_tbl_top_frame.grid(row=0, column=0, columnspan=3, sticky=W + E)
+        sql_tbl_bottom_left_frame.grid(row=1, column=0)
+        sql_tbl_bottom_right_frame.grid(row=1, column=2, padx=5)
+        sql_tbl_bottom_middle_frame.grid(row=1, column=1, padx=5)
         button_frame.pack(fill="both")
 
         # Apply Header text to Header_Frame that describes purpose of GUI
@@ -155,39 +163,43 @@ class SettingsGUI:
         acc_tbl_name_txtbox.configure(state=DISABLED)
 
         #     Access Table Column List
-        atc_xscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='horizontal')
-        atc_yscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='vertical')
-        self.atc_list_box = Listbox(acc_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=atc_yscrollbar,
-                                    xscrollcommand=atc_xscrollbar)
+        atc_xscrollbar = Scrollbar(acc_tbl_bottom_left_frame, orient='horizontal')
+        atc_yscrollbar = Scrollbar(acc_tbl_bottom_left_frame, orient='vertical')
+        self.atc_list_box = Listbox(acc_tbl_bottom_left_frame, selectmode=SINGLE, width=30,
+                                    yscrollcommand=atc_yscrollbar, xscrollcommand=atc_xscrollbar)
         atc_xscrollbar.config(command=self.atc_list_box.xview)
         atc_yscrollbar.config(command=self.atc_list_box.yview)
-        self.atc_list_box.grid(row=0, column=0, rowspan=4, padx=8, pady=5)
-        atc_xscrollbar.grid(row=4, column=0, sticky=W+E)
-        atc_yscrollbar.grid(row=0, column=1, rowspan=4, sticky=N+S)
+        self.atc_list_box.grid(row=0, column=0, padx=8, pady=5)
+        atc_xscrollbar.grid(row=1, column=0, sticky=W+E)
+        atc_yscrollbar.grid(row=0, column=1, sticky=N+S)
         self.atc_list_box.bind("<Down>", self.atc_list_down)
         self.atc_list_box.bind("<Up>", self.atc_list_up)
         self.atc_list_box.bind('<<ListboxSelect>>', self.atc_select)
 
         #     Access Column Migration Buttons
-        self.acc_right_button = Button(acc_tbl_bottom_frame, text='>', width=5, command=self.acc_right_migrate)
-        self.acc_all_right_button = Button(acc_tbl_bottom_frame, text='>>', width=5, command=self.acc_all_right_migrate)
-        self.acc_left_button = Button(acc_tbl_bottom_frame, text='<', width=5, command=self.acc_left_migrate)
-        self.acc_all_left_button = Button(acc_tbl_bottom_frame, text='<<', width=5, command=self.acc_all_left_migrate)
-        self.acc_right_button.grid(row=0, column=2, padx=5)
-        self.acc_all_right_button.grid(row=1, column=2, padx=5)
-        self.acc_left_button.grid(row=2, column=2, padx=5)
-        self.acc_all_left_button.grid(row=3, column=2, padx=5)
+        self.acc_right_button = Button(acc_tbl_bottom_middle_frame, text='>', width=5,
+                                       command=self.acc_right_migrate)
+        self.acc_all_right_button = Button(acc_tbl_bottom_middle_frame, text='>>', width=5,
+                                           command=self.acc_all_right_migrate)
+        self.acc_left_button = Button(acc_tbl_bottom_middle_frame, text='<', width=5,
+                                      command=self.acc_left_migrate)
+        self.acc_all_left_button = Button(acc_tbl_bottom_middle_frame, text='<<', width=5,
+                                          command=self.acc_all_left_migrate)
+        self.acc_right_button.grid(row=0, column=2, padx=7, pady=7)
+        self.acc_all_right_button.grid(row=1, column=2, padx=7, pady=7)
+        self.acc_left_button.grid(row=2, column=2, padx=7, pady=7)
+        self.acc_all_left_button.grid(row=3, column=2, padx=7, pady=7)
 
         #     Access Table Column Selection List
-        atcs_xscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='horizontal')
-        atcs_yscrollbar = Scrollbar(acc_tbl_bottom_frame, orient='vertical')
-        self.atcs_list_box = Listbox(acc_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=atcs_yscrollbar,
+        atcs_xscrollbar = Scrollbar(acc_tbl_bottom_right_frame, orient='horizontal')
+        atcs_yscrollbar = Scrollbar(acc_tbl_bottom_right_frame, orient='vertical')
+        self.atcs_list_box = Listbox(acc_tbl_bottom_right_frame, selectmode=SINGLE, width=30, yscrollcommand=atcs_yscrollbar,
                                      xscrollcommand=atcs_xscrollbar)
         atcs_xscrollbar.config(command=self.atcs_list_box.xview)
         atcs_yscrollbar.config(command=self.atcs_list_box.yview)
-        self.atcs_list_box.grid(row=0, column=3, rowspan=4, padx=8, pady=5)
-        atcs_xscrollbar.grid(row=4, column=3, sticky=W + E)
-        atcs_yscrollbar.grid(row=0, column=4, rowspan=4, sticky=N + S)
+        self.atcs_list_box.grid(row=0, column=3, padx=8, pady=5)
+        atcs_xscrollbar.grid(row=1, column=3, sticky=W + E)
+        atcs_yscrollbar.grid(row=0, column=4, sticky=N + S)
         self.atcs_list_box.bind("<Down>", self.atcs_list_down)
         self.atcs_list_box.bind("<Up>", self.atcs_list_up)
         self.atcs_list_box.bind('<<ListboxSelect>>', self.atcs_select)
@@ -201,39 +213,43 @@ class SettingsGUI:
         self.sql_tbl_name_txtbox.bind('<KeyRelease>', self.check_tbl_name)
 
         #     SQL Table Column List
-        stc_xscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='horizontal')
-        stc_yscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='vertical')
-        self.stc_list_box = Listbox(sql_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=stc_yscrollbar,
-                                    xscrollcommand=stc_xscrollbar)
+        stc_xscrollbar = Scrollbar(sql_tbl_bottom_left_frame, orient='horizontal')
+        stc_yscrollbar = Scrollbar(sql_tbl_bottom_left_frame, orient='vertical')
+        self.stc_list_box = Listbox(sql_tbl_bottom_left_frame, selectmode=SINGLE, width=30,
+                                    yscrollcommand=stc_yscrollbar, xscrollcommand=stc_xscrollbar)
         stc_xscrollbar.config(command=self.stc_list_box.xview)
         stc_yscrollbar.config(command=self.stc_list_box.yview)
-        self.stc_list_box.grid(row=0, column=0, rowspan=4, padx=8, pady=5)
-        stc_xscrollbar.grid(row=4, column=0, sticky=W + E)
-        stc_yscrollbar.grid(row=0, column=1, rowspan=4, sticky=N + S)
+        self.stc_list_box.grid(row=0, column=0, padx=8, pady=5)
+        stc_xscrollbar.grid(row=1, column=0, sticky=W + E)
+        stc_yscrollbar.grid(row=0, column=1, sticky=N + S)
         self.stc_list_box.bind("<Down>", self.stc_list_down)
         self.stc_list_box.bind("<Up>", self.stc_list_up)
         self.stc_list_box.bind('<<ListboxSelect>>', self.stc_select)
 
         #     SQL Column Migration Buttons
-        self.sql_right_button = Button(sql_tbl_bottom_frame, text='>', width=5, command=self.sql_right_migrate)
-        self.sql_all_right_button = Button(sql_tbl_bottom_frame, text='>>', width=5, command=self.sql_all_right_migrate)
-        self.sql_left_button = Button(sql_tbl_bottom_frame, text='<', width=5, command=self.sql_left_migrate)
-        self.sql_all_left_button = Button(sql_tbl_bottom_frame, text='<<', width=5, command=self.sql_all_left_migrate)
-        self.sql_right_button.grid(row=0, column=2, padx=5)
-        self.sql_all_right_button.grid(row=1, column=2, padx=5)
-        self.sql_left_button.grid(row=2, column=2, padx=5)
-        self.sql_all_left_button.grid(row=3, column=2, padx=5)
+        self.sql_right_button = Button(sql_tbl_bottom_middle_frame, text='>', width=5,
+                                       command=self.sql_right_migrate)
+        self.sql_all_right_button = Button(sql_tbl_bottom_middle_frame, text='>>', width=5,
+                                           command=self.sql_all_right_migrate)
+        self.sql_left_button = Button(sql_tbl_bottom_middle_frame, text='<', width=5,
+                                      command=self.sql_left_migrate)
+        self.sql_all_left_button = Button(sql_tbl_bottom_middle_frame, text='<<', width=5,
+                                          command=self.sql_all_left_migrate)
+        self.sql_right_button.grid(row=0, column=2, padx=7, pady=7)
+        self.sql_all_right_button.grid(row=1, column=2, padx=7, pady=7)
+        self.sql_left_button.grid(row=2, column=2, padx=7, pady=7)
+        self.sql_all_left_button.grid(row=3, column=2, padx=7, pady=7)
 
         #     SQL Table Column Selection List
-        stcs_xscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='horizontal')
-        stcs_yscrollbar = Scrollbar(sql_tbl_bottom_frame, orient='vertical')
-        self.stcs_list_box = Listbox(sql_tbl_bottom_frame, selectmode=SINGLE, width=30, yscrollcommand=stcs_yscrollbar,
-                                     xscrollcommand=atcs_xscrollbar)
+        stcs_xscrollbar = Scrollbar(sql_tbl_bottom_right_frame, orient='horizontal')
+        stcs_yscrollbar = Scrollbar(sql_tbl_bottom_right_frame, orient='vertical')
+        self.stcs_list_box = Listbox(sql_tbl_bottom_right_frame, selectmode=SINGLE, width=30,
+                                     yscrollcommand=stcs_yscrollbar, xscrollcommand=atcs_xscrollbar)
         stcs_xscrollbar.config(command=self.stcs_list_box.xview)
         stcs_yscrollbar.config(command=self.stcs_list_box.yview)
-        self.stcs_list_box.grid(row=0, column=3, rowspan=4, padx=8, pady=5)
-        stcs_xscrollbar.grid(row=4, column=3, sticky=W + E)
-        stcs_yscrollbar.grid(row=0, column=4, rowspan=4, sticky=N + S)
+        self.stcs_list_box.grid(row=0, column=3, padx=8, pady=5)
+        stcs_xscrollbar.grid(row=1, column=3, sticky=W + E)
+        stcs_yscrollbar.grid(row=0, column=4, sticky=N + S)
         self.stcs_list_box.bind("<Down>", self.stcs_list_down)
         self.stcs_list_box.bind("<Up>", self.stcs_list_up)
         self.stcs_list_box.bind('<<ListboxSelect>>', self.stcs_select)
@@ -307,21 +323,27 @@ class SettingsGUI:
 
         if not myresults.empty:
             for col in myresults['Column_Name'].tolist():
-                self.stc_list_sel.insert('end', col)
+                self.stc_list_box.insert('end', col)
         else:
             messagebox.showerror('No Columns Error!', 'Table has no columns in SQL Server')
 
     def check_tbl_name(self, event):
-        if self.insert:
-            if self.sql_tbl_name.get()\
-                    and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name']
-                                                       == self.sql_tbl_name.get()]) > 0:
-                self.stc_list_box.configure(state=NORMAL)
-                self.stcs_list_box.configure(state=NORMAL)
-                self.sql_right_button.configure(state=NORMAL)
-                self.sql_all_right_button.configure(state=NORMAL)
-                self.sql_left_button.configure(state=NORMAL)
-                self.sql_all_left_button.configure(state=NORMAL)
+        if self.stc_list_box.size() > 0:
+            self.stc_list_box.delete(0, self.stc_list_box.size() - 1)
+
+        if self.stcs_list_box.size() > 0:
+            self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
+
+        if self.insert and self.sql_tbl_name.get()\
+                    and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
+                                                       == self.sql_tbl_name.get().lower()]) > 0:
+            self.stc_list_box.configure(state=NORMAL)
+            self.stcs_list_box.configure(state=NORMAL)
+            self.sql_right_button.configure(state=NORMAL)
+            self.sql_all_right_button.configure(state=NORMAL)
+            self.sql_left_button.configure(state=NORMAL)
+            self.sql_all_left_button.configure(state=NORMAL)
+            self.populate_tbl_lists()
         elif str(self.stc_list_box['state']) != 'disabled':
             self.stc_list_box.configure(state=DISABLED)
             self.stcs_list_box.configure(state=DISABLED)
@@ -513,6 +535,6 @@ if __name__ == '__main__':
     obj = SettingsGUI()
 
     try:
-        obj.build_gui()
+        obj.build_gui(insert=True)
     finally:
         obj.sql_close()
