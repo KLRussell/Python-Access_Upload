@@ -14,6 +14,10 @@ global_objs = grabobjs(main_dir)
 
 
 class SettingsGUI:
+    atc_list_sel = 0
+    atcs_list_sel = 0
+    stc_list_sel = 0
+    stcs_list_sel = 0
     save_button = None
     atc_list_box = None
     atcs_list_box = None
@@ -136,6 +140,9 @@ class SettingsGUI:
         self.atc_list_box.grid(row=0, column=0, rowspan=4, padx=8, pady=5)
         atc_xscrollbar.grid(row=4, column=0, sticky=W+E)
         atc_yscrollbar.grid(row=0, column=1, rowspan=4, sticky=N+S)
+        self.atc_list_box.bind("<Down>", self.atc_list_down)
+        self.atc_list_box.bind("<Up>", self.atc_list_up)
+        self.atc_list_box.bind('<<ListboxSelect>>', self.atc_select)
 
         #     Access Column Migration Buttons
         self.acc_right_button = Button(acc_tbl_bottom_frame, text='>', width=5, command=self.acc_right_migrate)
@@ -157,6 +164,9 @@ class SettingsGUI:
         self.atcs_list_box.grid(row=0, column=3, rowspan=4, padx=8, pady=5)
         atcs_xscrollbar.grid(row=4, column=3, sticky=W + E)
         atcs_yscrollbar.grid(row=0, column=4, rowspan=4, sticky=N + S)
+        self.atcs_list_box.bind("<Down>", self.atcs_list_down)
+        self.atcs_list_box.bind("<Up>", self.atcs_list_up)
+        self.atcs_list_box.bind('<<ListboxSelect>>', self.atcs_select)
 
         # Apply Widgets to the SQL_TBL_Frame
         #     SQL Table Name Input Box
@@ -175,6 +185,9 @@ class SettingsGUI:
         self.stc_list_box.grid(row=0, column=0, rowspan=4, padx=8, pady=5)
         stc_xscrollbar.grid(row=4, column=0, sticky=W + E)
         stc_yscrollbar.grid(row=0, column=1, rowspan=4, sticky=N + S)
+        self.stc_list_box.bind("<Down>", self.stc_list_down)
+        self.stc_list_box.bind("<Up>", self.stc_list_up)
+        self.stc_list_box.bind('<<ListboxSelect>>', self.stc_select)
 
         #     SQL Column Migration Buttons
         self.sql_right_button = Button(sql_tbl_bottom_frame, text='>', width=5, command=self.sql_right_migrate)
@@ -196,6 +209,9 @@ class SettingsGUI:
         self.stcs_list_box.grid(row=0, column=3, rowspan=4, padx=8, pady=5)
         stcs_xscrollbar.grid(row=4, column=3, sticky=W + E)
         stcs_yscrollbar.grid(row=0, column=4, rowspan=4, sticky=N + S)
+        self.stcs_list_box.bind("<Down>", self.stcs_list_down)
+        self.stcs_list_box.bind("<Up>", self.stcs_list_up)
+        self.stcs_list_box.bind('<<ListboxSelect>>', self.stcs_select)
 
         # Apply Buttons to Button_Frame
         #     Save Button
@@ -272,6 +288,86 @@ class SettingsGUI:
     # Function to close SQL connection for this class
     def sql_close(self):
         self.asql.close()
+
+    # Function adjusts selection of item when user clicks item (ATC List)
+    def atc_select(self, event):
+        if self.atc_list_box and self.atc_list_box.curselection() \
+                and -1 < self.atc_list_sel < self.atc_list_box.size() - 1:
+            self.atc_list_sel = self.atc_list_box.curselection()[0]
+
+    # Function adjusts selection of item when user presses down key (ATC List)
+    def atc_list_down(self, event):
+        if self.atc_list_sel < self.atc_list_box.size() - 1:
+            self.atc_list_box.select_clear(self.atc_list_sel)
+            self.atc_list_sel += 1
+            self.atc_list_box.select_set(self.atc_list_sel)
+
+    # Function adjusts selection of item when user presses up key (ATC List)
+    def atc_list_up(self, event):
+        if self.atc_list_sel > 0:
+            self.atc_list_box.select_clear(self.atc_list_sel)
+            self.atc_list_sel -= 1
+            self.atc_list_box.select_set(self.atc_list_sel)
+
+    # Function adjusts selection of item when user clicks item (ATCS List)
+    def atcs_select(self, event):
+        if self.atcs_list_box and self.atcs_list_box.curselection() \
+                and -1 < self.atcs_list_sel < self.atcs_list_box.size() - 1:
+            self.atcs_list_sel = self.atcs_list_box.curselection()[0]
+
+    # Function adjusts selection of item when user presses down key (ATCS List)
+    def atcs_list_down(self, event):
+        if self.atcs_list_sel < self.atcs_list_box.size() - 1:
+            self.atcs_list_box.select_clear(self.atcs_list_sel)
+            self.atcs_list_sel += 1
+            self.atcs_list_box.select_set(self.atcs_list_sel)
+
+    # Function adjusts selection of item when user presses up key (ATCS List)
+    def atcs_list_up(self, event):
+        if self.atcs_list_sel > 0:
+            self.atcs_list_box.select_clear(self.atcs_list_sel)
+            self.atcs_list_sel -= 1
+            self.atcs_list_box.select_set(self.atcs_list_sel)
+
+    # Function adjusts selection of item when user clicks item (STC List)
+    def stc_select(self, event):
+        if self.stc_list_box and self.stc_list_box.curselection() \
+                and -1 < self.stc_list_sel < self.stc_list_box.size() - 1:
+            self.stc_list_sel = self.stc_list_box.curselection()[0]
+
+    # Function adjusts selection of item when user presses down key (STC List)
+    def stc_list_down(self, event):
+        if self.stc_list_sel < self.stc_list_box.size() - 1:
+            self.stc_list_box.select_clear(self.stc_list_sel)
+            self.stc_list_sel += 1
+            self.stc_list_box.select_set(self.stc_list_sel)
+
+    # Function adjusts selection of item when user presses up key (STC List)
+    def stc_list_up(self, event):
+        if self.stc_list_sel > 0:
+            self.stc_list_box.select_clear(self.stc_list_sel)
+            self.stc_list_sel -= 1
+            self.stc_list_box.select_set(self.stc_list_sel)
+
+    # Function adjusts selection of item when user clicks item (STCS List)
+    def stcs_select(self, event):
+        if self.stcs_list_box and self.stcs_list_box.curselection() \
+                and -1 < self.stcs_list_sel < self.stcs_list_box.size() - 1:
+            self.stcs_list_sel = self.stcs_list_box.curselection()[0]
+
+    # Function adjusts selection of item when user presses down key (STCS List)
+    def stcs_list_down(self, event):
+        if self.stcs_list_sel < self.stcs_list_box.size() - 1:
+            self.stcs_list_box.select_clear(self.stcs_list_sel)
+            self.stcs_list_sel += 1
+            self.stcs_list_box.select_set(self.stcs_list_sel)
+
+    # Function adjusts selection of item when user presses up key (STCS List)
+    def stcs_list_up(self, event):
+        if self.stcs_list_sel > 0:
+            self.stcs_list_box.select_clear(self.stcs_list_sel)
+            self.stcs_list_sel -= 1
+            self.stcs_list_box.select_set(self.stcs_list_sel)
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_right_migrate(self):
