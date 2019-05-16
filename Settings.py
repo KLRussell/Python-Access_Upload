@@ -75,7 +75,7 @@ class SettingsGUI:
     def grab_tables(self):
         self.complete_sql_tbl_list = self.asql.query('''
             SELECT
-                CONCAT(Table_Schema, '.', Table_Name)
+                CONCAT(Table_Schema, '.', Table_Name) TBL_Name
             FROM information_schema.tables''')
 
     # Function to connect to SQL connection for this class
@@ -291,14 +291,44 @@ class SettingsGUI:
         self.sql_left_button.configure(state=DISABLED)
         self.sql_all_left_button.configure(state=DISABLED)
 
+    def populate_tbl_lists(self):
+        mytbl = self.sql_tbl_name.get().split('.')
+        myresults = self.asql.query('''
+            SELECT
+                Column_Name
+                
+            FROM INFORMATION_SCHEMA.COLUMNS
+    
+            WHERE
+                Table_Schema = '{0}'
+                    AND
+                Table_Name = '{1}'
+        '''.format(mytbl[0], mytbl[1]))
+
+        if not myresults.empty:
+            for col in myresults['Column_Name'].tolist():
+                self.stc_list_sel.insert('end', col)
+        else:
+            messagebox.showerror('No Columns Error!', 'Table has no columns in SQL Server')
+
     def check_tbl_name(self, event):
-        if self.insert and self.sql_tbl_name.get():
-            self.stc_list_box.configure(state=NORMAL)
-            self.stcs_list_box.configure(state=NORMAL)
-            self.sql_right_button.configure(state=NORMAL)
-            self.sql_all_right_button.configure(state=NORMAL)
-            self.sql_left_button.configure(state=NORMAL)
-            self.sql_all_left_button.configure(state=NORMAL)
+        if self.insert:
+            if self.sql_tbl_name.get()\
+                    and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name']
+                                                       == self.sql_tbl_name.get()]) > 0:
+                self.stc_list_box.configure(state=NORMAL)
+                self.stcs_list_box.configure(state=NORMAL)
+                self.sql_right_button.configure(state=NORMAL)
+                self.sql_all_right_button.configure(state=NORMAL)
+                self.sql_left_button.configure(state=NORMAL)
+                self.sql_all_left_button.configure(state=NORMAL)
+        elif str(self.stc_list_box['state']) != 'disabled':
+            self.stc_list_box.configure(state=DISABLED)
+            self.stcs_list_box.configure(state=DISABLED)
+            self.sql_right_button.configure(state=DISABLED)
+            self.sql_all_right_button.configure(state=DISABLED)
+            self.sql_left_button.configure(state=DISABLED)
+            self.sql_all_left_button.configure(state=DISABLED)
 
     # Function to check network settings if populated
     def check_network(self, event):
