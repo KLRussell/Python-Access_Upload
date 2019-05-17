@@ -478,8 +478,10 @@ class SettingsGUI:
                 if self.atc_list_sel > 0:
                     self.atc_list_sel -= 1
                 self.atc_list_box.select_set(self.atc_list_sel)
-            else:
+            elif self.atc_list_sel > 0:
                 self.atc_list_sel = -1
+            else:
+                self.atc_list_sel = 0
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_all_right_migrate(self):
@@ -488,6 +490,7 @@ class SettingsGUI:
                 self.atcs_list_box.insert('end', self.atc_list_box.get(i))
 
             self.atc_list_box.delete(0, self.atc_list_box.size() - 1)
+            self.atc_list_sel = 0
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_left_migrate(self):
@@ -499,8 +502,10 @@ class SettingsGUI:
                 if self.atcs_list_sel > 0:
                     self.atcs_list_sel -= 1
                 self.atcs_list_box.select_set(self.atcs_list_sel)
-            else:
+            elif self.atcs_list_sel > 0:
                 self.atcs_list_sel = -1
+            else:
+                self.atcs_list_sel = 0
 
     # Button to migrate single record to right list (Access TBL Section)
     def acc_all_left_migrate(self):
@@ -509,6 +514,7 @@ class SettingsGUI:
                 self.atc_list_box.insert('end', self.atcs_list_box.get(i))
 
             self.atcs_list_box.delete(0, self.atcs_list_box.size() - 1)
+            self.atcs_list_sel = 0
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_right_migrate(self):
@@ -520,8 +526,10 @@ class SettingsGUI:
                 if self.stc_list_sel > 0:
                     self.stc_list_sel -= 1
                 self.stc_list_box.select_set(self.stc_list_sel)
-            else:
+            elif self.stc_list_sel > 0:
                 self.stc_list_sel = -1
+            else:
+                self.stc_list_sel = 0
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_all_right_migrate(self):
@@ -530,6 +538,7 @@ class SettingsGUI:
                 self.stcs_list_box.insert('end', self.stc_list_box.get(i))
 
             self.stc_list_box.delete(0, self.stc_list_box.size() - 1)
+            self.stc_list_sel = 0
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_left_migrate(self):
@@ -541,8 +550,10 @@ class SettingsGUI:
                 if self.stcs_list_sel > 0:
                     self.stcs_list_sel -= 1
                 self.stcs_list_box.select_set(self.stcs_list_sel)
-            else:
+            elif self.stcs_list_sel > 0:
                 self.stcs_list_sel = -1
+            else:
+                self.stcs_list_sel = 0
 
     # Button to migrate single record to right list (SQL TBL Section)
     def sql_all_left_migrate(self):
@@ -551,6 +562,7 @@ class SettingsGUI:
                 self.stc_list_box.insert('end', self.stcs_list_box.get(i))
 
             self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
+            self.stcs_list_sel = 0
 
     # Function to save settings when the Save Settings button is pressed
     def save_settings(self):
