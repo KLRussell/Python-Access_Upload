@@ -651,13 +651,13 @@ class ChangeUploadSettings:
     # Function to build GUI for Extract Shelf
     def build_gui(self):
         # Set GUI Geometry and GUI Title
-        self.main.geometry('252x280+500+190')
-        self.main.title('Access Upload Settings Modifier')
+        self.main.geometry('245x300+630+290')
+        self.main.title('Upload Settings')
         self.main.resizable(False, False)
 
         # Set GUI Frames
         header_frame = Frame(self.main)
-        list_frame = LabelFrame(self.main, text='Access Upload Setting', width=444, height=140)
+        list_frame = LabelFrame(self.main, text='Settings List', width=444, height=140)
         button_frame = Frame(self.main)
 
         # Apply Frames into GUI
@@ -685,7 +685,7 @@ class ChangeUploadSettings:
 
         # Apply Buttons to Button_Frame
         #     Save Button
-        self.save_button = Button(self.main, text='Save Settings', width=15, command=self.change_setting)
+        self.save_button = Button(self.main, text='Change Setting', width=15, command=self.change_setting)
         self.save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
 
         #     Cancel Button
@@ -733,7 +733,7 @@ class ChangeSetting:
     def build_gui(self):
         # Set GUI Geometry and GUI Title
         self.main.geometry('252x280+500+190')
-        self.main.title('Access Setting')
+        self.main.title('Access Setting Modifier')
         self.main.resizable(False, False)
 
         # Set GUI Frames
