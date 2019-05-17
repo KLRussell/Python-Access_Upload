@@ -34,6 +34,7 @@ class SettingsGUI:
     sql_left_button = None
     sql_all_left_button = None
     sql_tbl_name_txtbox = None
+    sql_tbl_truncate_checkbox = None
     complete_sql_tbl_list = pd.DataFrame()
 
     # Function that is executed upon creation of SettingsGUI class
@@ -47,6 +48,7 @@ class SettingsGUI:
         self.database = StringVar()
         self.acc_tbl_name = StringVar()
         self.sql_tbl_name = StringVar()
+        self.sql_tbl_truncate = IntVar()
 
         # GUI Bind On Destruction event
         self.main.bind('<Destroy>', self.gui_destroy)
@@ -209,10 +211,14 @@ class SettingsGUI:
         # Apply Widgets to the SQL_TBL_Frame
         #     SQL Table Name Input Box
         sql_tbl_name_label = Label(sql_tbl_top_frame, text='TBL Name:')
-        self.sql_tbl_name_txtbox = Entry(sql_tbl_top_frame, textvariable=self.sql_tbl_name, width=64)
+        self.sql_tbl_name_txtbox = Entry(sql_tbl_top_frame, textvariable=self.sql_tbl_name, width=52)
         sql_tbl_name_label.grid(row=0, column=0, padx=8, pady=5)
         self.sql_tbl_name_txtbox.grid(row=0, column=1, padx=5, pady=5)
         self.sql_tbl_name_txtbox.bind('<KeyRelease>', self.check_tbl_name)
+
+        #     Truncate Check Box
+        self.sql_tbl_truncate_checkbox = Checkbutton(sql_tbl_top_frame, text='Truncate TBL', variable=self.sql_tbl_truncate)
+        self.sql_tbl_truncate_checkbox.grid(row=0, column=2, padx=8, pady=5)
 
         #     SQL Table Column List
         stc_xscrollbar = Scrollbar(sql_tbl_bottom_left_frame, orient='horizontal')
@@ -279,7 +285,6 @@ class SettingsGUI:
     def fill_gui(self):
         self.fill_textbox('Settings', self.server, 'Server')
         self.fill_textbox('Settings', self.database, 'Database')
-
         if not self.server.get() or not self.database.get() or not self.asql.test_conn('alch'):
             self.save_button.configure(state=DISABLED)
             self.atc_list_box.configure(state=DISABLED)
@@ -289,6 +294,7 @@ class SettingsGUI:
             self.acc_left_button.configure(state=DISABLED)
             self.acc_all_left_button.configure(state=DISABLED)
             self.sql_tbl_name_txtbox.configure(state=DISABLED)
+            self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
         else:
             self.asql.connect('alch')
             self.grab_tables()
@@ -308,6 +314,7 @@ class SettingsGUI:
                 self.acc_left_button.configure(state=DISABLED)
                 self.acc_all_left_button.configure(state=DISABLED)
                 self.sql_tbl_name_txtbox.configure(state=DISABLED)
+                self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
 
         self.stc_list_box.configure(state=DISABLED)
         self.stcs_list_box.configure(state=DISABLED)
@@ -387,6 +394,7 @@ class SettingsGUI:
                     self.acc_left_button.configure(state=NORMAL)
                     self.acc_all_left_button.configure(state=NORMAL)
                     self.sql_tbl_name_txtbox.configure(state=NORMAL)
+                    self.sql_tbl_truncate_checkbox.configure(state=NORMAL)
 
     # Function adjusts selection of item when user clicks item (ATC List)
     def atc_select(self, event):
@@ -582,31 +590,38 @@ class SettingsGUI:
 
     # Function to save settings when the Save Settings button is pressed
     def save_settings(self):
-        if self.server.get() and self.database.get():
-            if not self.sql_tbl.get():
-                messagebox.showerror('SQL TBL Empty Error!', 'No value has been inputed for SQL TBL',
+        if self.acc_table and self.server.get() and self.database.get():
+            if self.atcs_list_box.size() < 1:
+                messagebox.showerror('List Empty Error!',
+                                     'Access Table Select Column Listbox is empty. Please migrate columns',
                                      parent=self.main)
-            elif not self.shelf_life.get():
-                messagebox.showerror('Shelf Life Empty Error!', 'No value has been inputed for Shelf Life',
+            elif not self.sql_tbl_name.get():
+                messagebox.showerror('Input Box Empty Error!',
+                                     'SQL Table input field is empty. Please populate and migrate columns thereafter',
                                      parent=self.main)
-            elif self.shelf_life.get() <= 0:
-                messagebox.showerror('Invalid Shelf Life Error!', 'Shelf Life <= 0',
+            elif self.stcs_list_box.size() < 1:
+                messagebox.showerror('List Empty Error!',
+                                     'SQL Table Select Column Listbox is empty. Please migrate columns',
+                                     parent=self.main)
+            elif self.atcs_list_box.size() != self.stcs_list_box.size():
+                messagebox.showerror('List Comparison Error!',
+                                     'SQL Table Select Column Listbox size != Access Table Select Listbox size',
                                      parent=self.main)
             else:
-                if not self.check_table(self.sql_tbl.get()):
+                if len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
+                                                  == self.sql_tbl_name.get().lower()]) < 1:
                     messagebox.showerror('Invalid SQL TBL!',
                                          'SQL TBL does not exist in sql server',
                                          parent=self.main)
                 else:
-                    if self.autofill.get() == 1:
-                        myitems = [True, self.shelf_life.get()]
+                    if self.sql_tbl_truncate.get() == 1:
+                        myitems = [self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                   self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1), True]
                     else:
-                        myitems = [False, self.shelf_life.get()]
+                        myitems = [self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                   self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1), False]
 
-                    if self.autofill.get() != 1 or self.shelf_life.get() != 14:
-                        self.add_setting('Local_Settings', myitems, self.sql_tbl.get(), False)
-                    else:
-                        global_objs['Local_Settings'].del_item(self.sql_tbl.get())
+                    self.add_setting('Local_Settings', myitems, 'Accdb_Configs', False)
 
                     self.main.destroy()
 
