@@ -14,6 +14,7 @@ global_objs = grabobjs(main_dir)
 
 
 class SettingsGUI:
+    change_upload_settings_obj = None
     acc_table = None
     acc_cols = None
     atc_list_sel = 0
@@ -622,16 +623,142 @@ class SettingsGUI:
                                    self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1), False]
 
                     self.add_setting('Local_Settings', myitems, 'Accdb_Configs', False)
-
                     self.main.destroy()
 
-    # Function to load extract Shelf GUI
+    # Function to launch change upload settings GUI
     def upload_settings(self):
-        if self.shelf_obj:
-            self.shelf_obj.cancel()
+        if self.change_upload_settings_obj:
+            self.change_upload_settings_obj.cancel()
 
-        self.shelf_obj = ExtractShelf(self.main)
-        self.shelf_obj.build_gui()
+        self.change_upload_settings_obj = ChangeUploadSettings(self.main)
+        self.change_upload_settings_obj.build_gui()
+
+    # Function to destroy GUI when Cancel button is pressed
+    def cancel(self):
+        self.main.destroy()
+
+
+class ChangeUploadSettings:
+    save_button = None
+    list_box = None
+    change_setting_obj = None
+    list_sel = 0
+
+    def __init__(self, root):
+        self.main = Toplevel(root)
+        self.header_text = 'Welcome to Upload Settings!\nPlease choose a setting to modify.\nWhen finished press change setting'
+
+    # Function to build GUI for Extract Shelf
+    def build_gui(self):
+        # Set GUI Geometry and GUI Title
+        self.main.geometry('252x280+500+190')
+        self.main.title('Access Upload Settings Modifier')
+        self.main.resizable(False, False)
+
+        # Set GUI Frames
+        header_frame = Frame(self.main)
+        list_frame = LabelFrame(self.main, text='Access Upload Setting', width=444, height=140)
+        button_frame = Frame(self.main)
+
+        # Apply Frames into GUI
+        header_frame.pack()
+        list_frame.pack(fill="both")
+        button_frame.pack(fill="both")
+
+        # Apply Header text to Header_Frame that describes purpose of GUI
+        header = Message(self.main, text=self.header_text, width=375, justify=CENTER)
+        header.pack(in_=header_frame)
+
+        #     Access Setting List Populate
+        xscrollbar = Scrollbar(list_frame, orient='horizontal')
+        yscrollbar = Scrollbar(list_frame, orient='vertical')
+        self.list_box = Listbox(list_frame, selectmode=SINGLE, width=30,
+                                yscrollcommand=yscrollbar, xscrollcommand=xscrollbar)
+        xscrollbar.config(command=self.list_box.xview)
+        yscrollbar.config(command=self.list_box.yview)
+        self.list_box.grid(row=0, column=3, padx=8, pady=5)
+        xscrollbar.grid(row=1, column=3, sticky=W + E)
+        yscrollbar.grid(row=0, column=4, sticky=N + S)
+        self.list_box.bind("<Down>", self.list_down)
+        self.list_box.bind("<Up>", self.list_up)
+        self.list_box.bind('<<ListboxSelect>>', self.list_select)
+
+        # Apply Buttons to Button_Frame
+        #     Save Button
+        self.save_button = Button(self.main, text='Save Settings', width=15, command=self.change_setting)
+        self.save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
+
+        #     Cancel Button
+        extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+
+    def list_down(self, event):
+        if self.list_sel < self.list_box.size() - 1:
+            self.list_box.select_clear(self.list_sel)
+            self.list_sel += 1
+            self.list_box.select_set(self.list_sel)
+
+    # Function adjusts selection of item when user presses up key (ATCS List)
+    def list_up(self, event):
+        if self.list_sel > 0:
+            self.list_box.select_clear(self.list_sel)
+            self.list_sel -= 1
+            self.list_box.select_set(self.list_sel)
+
+    # Function adjusts selection of item when user clicks item (STC List)
+    def list_select(self, event):
+        if self.list_box and self.list_box.curselection() \
+                and -1 < self.list_sel < self.list_box.size() - 1:
+            self.list_sel = self.list_box.curselection()[0]
+
+    def change_setting(self):
+        if self.list_box.curselection():
+            if self.change_setting_obj:
+                self.change_setting_obj.cancel()
+
+            self.change_setting_obj = ChangeSetting(self.main)
+            self.change_setting_obj.build_gui()
+
+    # Function to destroy GUI when Cancel button is pressed
+    def cancel(self):
+        self.main.destroy()
+
+
+class ChangeSetting:
+    def __init__(self, root):
+        self.main = Toplevel(root)
+        self.header_text = 'Please change the setting columns below.\nWhen finished press save'
+
+    # Function to build GUI for Extract Shelf
+    def build_gui(self):
+        # Set GUI Geometry and GUI Title
+        self.main.geometry('252x280+500+190')
+        self.main.title('Access Setting')
+        self.main.resizable(False, False)
+
+        # Set GUI Frames
+        header_frame = Frame(self.main)
+        button_frame = Frame(self.main)
+
+        # Apply Frames into GUI
+        header_frame.pack()
+        button_frame.pack(fill="both")
+
+        # Apply Header text to Header_Frame that describes purpose of GUI
+        header = Message(self.main, text=self.header_text, width=375, justify=CENTER)
+        header.pack(in_=header_frame)
+
+        # Apply Buttons to Button_Frame
+        #     Save Button
+        save_button = Button(self.main, text='Save Settings', width=15, command=self.change_setting)
+        save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
+
+        #     Cancel Button
+        extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+
+    def change_setting(self):
+        print('changing setting')
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
