@@ -629,18 +629,24 @@ class SettingsGUI:
                     if configs:
                         for config in configs:
                             if config[0] == self.acc_tbl_name:
-                                configs.remove(config)
+                                del config
                                 break
                     else:
                         configs = []
 
                     if self.sql_tbl_truncate.get() == 1:
-                        configs.append([self.acc_tbl_name.get(), self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
-                                        self.sql_tbl_name.get(), self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                        configs.append([self.acc_tbl_name.get(),
+                                        self.atc_list_box.get(0, self.atc_list_box.size() - 1),
+                                        self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name.get(),
+                                        self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
                                         True])
                     else:
-                        configs.append([self.acc_tbl_name.get(), self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
-                                        self.sql_tbl_name.get(), self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                        configs.append([self.acc_tbl_name.get(),
+                                        self.atc_list_box.get(0, self.atc_list_box.size() - 1),
+                                        self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name.get(),
+                                        self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
                                         False])
                     self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
                     self.main.destroy()
@@ -1006,11 +1012,14 @@ class ChangeSetting:
 
             if self.config[4]:
                 for col in self.config[4]:
-                    self.stc_list_box.insert('end', col)
+                    self.stcs_list_box.insert('end', col)
+
+            if len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
+                                              == self.config[3].lower()]) > 0:
+                self.populate_tbl_lists(True)
 
             if self.config[5]:
-                for col in self.config[5]:
-                    self.stcs_list_box.insert('end', col)
+                self.sql_tbl_truncate.set(1)
         else:
             self.stc_list_box.configure(state=DISABLED)
             self.stcs_list_box.configure(state=DISABLED)
@@ -1019,7 +1028,7 @@ class ChangeSetting:
             self.sql_left_button.configure(state=DISABLED)
             self.sql_all_left_button.configure(state=DISABLED)
 
-    def populate_tbl_lists(self):
+    def populate_tbl_lists(self, check_stcs_list=False):
         mytbl = self.sql_tbl_name.get().split('.')
         myresults = self.asql.query('''
             SELECT
@@ -1034,8 +1043,22 @@ class ChangeSetting:
         '''.format(mytbl[0], mytbl[1]))
 
         if not myresults.empty:
+            if self.stcs_list_box.size() > 0:
+                stcs = self.stcs_list_box.get(0, self.stcs_list_box.size() - 1)
+            else:
+                stcs = None
+
             for col in myresults['Column_Name'].tolist():
-                self.stc_list_box.insert('end', col)
+                skipadd = False
+
+                if check_stcs_list and stcs:
+                    for col2 in stcs:
+                        if col.lower() == col2.lower():
+                            skipadd = True
+                            break
+
+                if not skipadd:
+                    self.stc_list_box.insert('end', col)
 
             self.atc_list_box.select_set(self.stc_list_sel)
         else:
