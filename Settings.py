@@ -37,6 +37,7 @@ class SettingsGUI:
     sql_tbl_name_txtbox = None
     sql_tbl_truncate_checkbox = None
     extract_button = None
+    upload_button = None
     complete_sql_tbl_list = pd.DataFrame()
 
     # Function that is executed upon creation of SettingsGUI class
@@ -275,9 +276,9 @@ class SettingsGUI:
         self.extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
         self.extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
-        #     Extract Shelf Button
-        extract_button = Button(self.main, text='Upload Settings', width=15, command=self.upload_settings)
-        extract_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
+        #     Upload Settings Button
+        self.upload_button = Button(self.main, text='Upload Settings', width=15, command=self.upload_settings)
+        self.upload_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
 
         # Fill Textboxes with settings
         self.fill_gui()
@@ -311,6 +312,7 @@ class SettingsGUI:
                     self.atc_list_box.insert('end', col)
 
                 self.atc_list_box.select_set(self.stc_list_sel)
+                self.upload_button.configure(state=DISABLED)
             else:
                 self.atc_list_box.configure(state=DISABLED)
                 self.atcs_list_box.configure(state=DISABLED)
@@ -759,11 +761,8 @@ class ChangeUploadSettings:
 
             for config in self.configs:
                 if config[0] == self.list_box.get(self.list_box.curselection()):
-                    self.change_setting_obj = ChangeSetting(self.main, config)
+                    self.change_setting_obj = ChangeSetting(self, self.main, config)
                     self.change_setting_obj.build_gui()
-                    self.list_box.delete(0, self.list_box.size() - 1)
-                    self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
-                    self.load_gui_fields()
                     break
 
     # Function to destroy GUI when Cancel button is pressed
@@ -794,7 +793,8 @@ class ChangeSetting:
     sql_tbl_truncate_checkbox = None
     complete_sql_tbl_list = pd.DataFrame()
 
-    def __init__(self, root, config):
+    def __init__(self, class_obj, root, config):
+        self.class_obj = class_obj
         self.main = Toplevel(root)
         self.config = config
         self.asql = global_objs['SQL']
@@ -816,6 +816,9 @@ class ChangeSetting:
     # Function executes when GUI is destroyed
     def gui_destroy(self, event):
         self.asql.close()
+        self.class_obj.list_box.delete(0, self.class_obj.list_box.size() - 1)
+        self.class_obj.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+        self.class_obj.load_gui_fields()
 
     # Static function to fill textbox in GUI
     @staticmethod
@@ -1372,6 +1375,6 @@ if __name__ == '__main__':
     obj = SettingsGUI()
 
     try:
-        obj.build_gui(acc_table='Granite Dispute Tracking Dbase Updated Records', acc_cols=['Vendor', 'Platform'])
+        obj.build_gui()
     finally:
         obj.sql_close()
