@@ -615,14 +615,25 @@ class SettingsGUI:
                                          'SQL TBL does not exist in sql server',
                                          parent=self.main)
                 else:
-                    if self.sql_tbl_truncate.get() == 1:
-                        myitems = [self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
-                                   self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1), True]
+                    configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+                    if configs:
+                        for config in configs:
+                            if config[0] == self.acc_tbl_name:
+                                configs.remove(config)
+                                break
                     else:
-                        myitems = [self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
-                                   self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1), False]
+                        configs = []
 
-                    self.add_setting('Local_Settings', myitems, 'Accdb_Configs', False)
+                    if self.sql_tbl_truncate.get() == 1:
+                        configs.append([self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                                        True])
+                    else:
+                        configs.append([self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                                        False])
+
+                    self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
                     self.main.destroy()
 
     # Function to launch change upload settings GUI
@@ -691,6 +702,18 @@ class ChangeUploadSettings:
         #     Cancel Button
         extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
         extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+
+        self.load_gui_fields()
+
+    def load_gui_fields(self):
+        configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+
+        if configs:
+            for config in configs:
+                self.list_box.insert('end', config[0])
+        else:
+            self.list_box.configure(state=DISABLED)
+            self.save_button.configure(state=DISABLED)
 
     def list_down(self, event):
         if self.list_sel < self.list_box.size() - 1:
