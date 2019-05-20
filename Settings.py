@@ -314,6 +314,7 @@ class SettingsGUI:
                 self.atc_list_box.select_set(self.stc_list_sel)
                 self.upload_button.configure(state=DISABLED)
             else:
+                self.save_button.configure(state=DISABLED)
                 self.atc_list_box.configure(state=DISABLED)
                 self.atcs_list_box.configure(state=DISABLED)
                 self.acc_right_button.configure(state=DISABLED)
@@ -362,8 +363,8 @@ class SettingsGUI:
             self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
 
         if self.acc_table and self.sql_tbl_name.get()\
-                    and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
-                                                       == self.sql_tbl_name.get().lower()]) > 0:
+                and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
+                                                   == self.sql_tbl_name.get().lower()]) > 0:
             self.stc_list_box.configure(state=NORMAL)
             self.stcs_list_box.configure(state=NORMAL)
             self.sql_right_button.configure(state=NORMAL)
