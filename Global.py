@@ -21,7 +21,7 @@ import random
 import string
 
 
-def grabobjs(scriptdir):
+def grabobjs(scriptdir, filename=None):
     if scriptdir and os.path.exists(scriptdir):
         myobjs = dict()
         myinput = None
@@ -53,7 +53,7 @@ def grabobjs(scriptdir):
             myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
             myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
 
-        myobjs['Event_Log'] = LogHandle(scriptdir)
+        myobjs['Event_Log'] = LogHandle(scriptdir, filename)
         myobjs['SQL'] = SQLHandle(logobj=myobjs['Event_Log'], settingsobj=myobjs['Settings'])
         myobjs['Errors'] = ErrHandle(myobjs['Event_Log'])
 
@@ -253,19 +253,23 @@ class ShelfHandle:
 
 
 class LogHandle:
-    def __init__(self, scriptpath):
+    def __init__(self, scriptpath, filename=None):
         if scriptpath:
             if not os.path.exists(os.path.join(scriptpath, '01_Event_Logs')):
                 os.makedirs(os.path.join(scriptpath, '01_Event_Logs'))
 
             self.EventLog_Dir = os.path.join(scriptpath, '01_Event_Logs')
+
+            if filename:
+                self.filename = filename
+            else:
+                self.filename = os.path.basename(os.path.dirname(os.path.abspath(__file__)))
         else:
             raise Exception('Settings object was not passed through')
 
     def write_log(self, message, action='info'):
         filepath = os.path.join(self.EventLog_Dir,
-                                "{0}_{1}_Log.txt".format(datetime.datetime.now().__format__("%Y%m%d"), os.path
-                                                         .basename(os.path.dirname(os.path.abspath(__file__)))))
+                                "{0}_{1}_Log.txt".format(datetime.datetime.now().__format__("%Y%m%d"), self.filename))
 
         logging.basicConfig(filename=filepath,
                             level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
