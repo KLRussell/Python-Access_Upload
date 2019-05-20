@@ -759,6 +759,8 @@ class ChangeUploadSettings:
                 if config[0] == self.list_box.get(self.list_box.curselection()):
                     self.change_setting_obj = ChangeSetting(self.main, config)
                     self.change_setting_obj.build_gui()
+                    self.list_box.delete(0, self.list_box.size() - 1)
+                    self.load_gui_fields()
                     break
 
     # Function to destroy GUI when Cancel button is pressed
@@ -1349,7 +1351,9 @@ class ChangeSetting:
             if configs:
                 for config in configs:
                     if config[0] == self.acc_tbl_name.get():
+                        print('delete')
                         del config
+                        self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
                         self.main.destroy()
 
     # Function to destroy GUI when Cancel button is pressed
