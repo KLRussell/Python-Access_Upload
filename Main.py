@@ -11,7 +11,7 @@ import datetime
 CurrDir = os.path.dirname(os.path.abspath(__file__))
 AccdbDir = os.path.join(CurrDir, "02_Process")
 ProcessedDir = os.path.join(CurrDir, "03_Processed")
-Global_Objs = grabobjs(CurrDir)
+Global_Objs = grabobjs(CurrDir, 'AccessDB')
 
 
 class AccdbHandle:
