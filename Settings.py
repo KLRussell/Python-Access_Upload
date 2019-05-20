@@ -71,10 +71,12 @@ class SettingsGUI:
     # static function to add setting to Local_Settings shelf files
     @staticmethod
     def add_setting(setting_list, val, key, encrypt=True):
-        assert (key and val and setting_list)
+        assert (key and setting_list)
 
         global_objs[setting_list].del_item(key)
-        global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
+
+        if val:
+            global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
 
     # Function to validate whether a SQL table exists in SQL server
     def grab_tables(self):
@@ -629,7 +631,7 @@ class SettingsGUI:
                     if configs:
                         for config in configs:
                             if config[0] == self.acc_tbl_name.get():
-                                del config
+                                configs.remove(config)
                                 break
                     else:
                         configs = []
@@ -760,6 +762,7 @@ class ChangeUploadSettings:
                     self.change_setting_obj = ChangeSetting(self.main, config)
                     self.change_setting_obj.build_gui()
                     self.list_box.delete(0, self.list_box.size() - 1)
+                    self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
                     self.load_gui_fields()
                     break
 
@@ -826,10 +829,12 @@ class ChangeSetting:
     # static function to add setting to Local_Settings shelf files
     @staticmethod
     def add_setting(setting_list, val, key, encrypt=True):
-        assert (key and val and setting_list)
+        assert (key and setting_list)
 
         global_objs[setting_list].del_item(key)
-        global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
+
+        if val:
+            global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
 
     # Function to validate whether a SQL table exists in SQL server
     def grab_tables(self):
@@ -1318,7 +1323,7 @@ class ChangeSetting:
                     if configs:
                         for config in configs:
                             if config[0] == self.acc_tbl_name.get():
-                                del config
+                                configs.remove(config)
                                 break
                     else:
                         configs = []
@@ -1351,10 +1356,11 @@ class ChangeSetting:
             if configs:
                 for config in configs:
                     if config[0] == self.acc_tbl_name.get():
-                        print('delete')
-                        del config
-                        self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
-                        self.main.destroy()
+                        configs.remove(config)
+                        break
+
+                self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
+                self.main.destroy()
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
