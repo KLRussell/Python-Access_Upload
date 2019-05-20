@@ -625,14 +625,13 @@ class SettingsGUI:
                         configs = []
 
                     if self.sql_tbl_truncate.get() == 1:
-                        configs.append([self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
-                                        self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                        configs.append([self.acc_tbl_name.get(), self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name.get(), self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
                                         True])
                     else:
-                        configs.append([self.acc_tbl_name, self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
-                                        self.sql_tbl_name, self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                        configs.append([self.acc_tbl_name.get(), self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name.get(), self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
                                         False])
-
                     self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
                     self.main.destroy()
 
