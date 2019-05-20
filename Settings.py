@@ -628,7 +628,7 @@ class SettingsGUI:
                     configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
                     if configs:
                         for config in configs:
-                            if config[0] == self.acc_tbl_name:
+                            if config[0] == self.acc_tbl_name.get():
                                 del config
                                 break
                     else:
@@ -992,6 +992,10 @@ class ChangeSetting:
         extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
         extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
+        #     Delete Setting
+        delete_button = Button(self.main, text='Delete Setting', width=15, command=self.delete_setting)
+        delete_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
+
         self.fill_gui()
 
     # Function to fill GUI textbox fields
@@ -1284,7 +1288,69 @@ class ChangeSetting:
             self.stc_list_box.select_set(self.stc_list_sel)
 
     def change_setting(self):
-        print('changing setting')
+        if self.config:
+            if self.atcs_list_box.size() < 1:
+                messagebox.showerror('List Empty Error!',
+                                     'Access Table Select Column Listbox is empty. Please migrate columns',
+                                     parent=self.main)
+            elif not self.sql_tbl_name.get():
+                messagebox.showerror('Input Box Empty Error!',
+                                     'SQL Table input field is empty. Please populate and migrate columns thereafter',
+                                     parent=self.main)
+            elif self.stcs_list_box.size() < 1:
+                messagebox.showerror('List Empty Error!',
+                                     'SQL Table Select Column Listbox is empty. Please migrate columns',
+                                     parent=self.main)
+            elif self.atcs_list_box.size() != self.stcs_list_box.size():
+                messagebox.showerror('List Comparison Error!',
+                                     'SQL Table Select Column Listbox size != Access Table Select Listbox size',
+                                     parent=self.main)
+            else:
+                if len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
+                                                  == self.sql_tbl_name.get().lower()]) < 1:
+                    messagebox.showerror('Invalid SQL TBL!',
+                                         'SQL TBL does not exist in sql server',
+                                         parent=self.main)
+                else:
+                    configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+                    if configs:
+                        for config in configs:
+                            if config[0] == self.acc_tbl_name.get():
+                                del config
+                                break
+                    else:
+                        configs = []
+
+                    if self.sql_tbl_truncate.get() == 1:
+                        configs.append([self.acc_tbl_name.get(),
+                                        self.atc_list_box.get(0, self.atc_list_box.size() - 1),
+                                        self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name.get(),
+                                        self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                                        True])
+                    else:
+                        configs.append([self.acc_tbl_name.get(),
+                                        self.atc_list_box.get(0, self.atc_list_box.size() - 1),
+                                        self.atcs_list_box.get(0, self.atcs_list_box.size() - 1),
+                                        self.sql_tbl_name.get(),
+                                        self.stcs_list_box.get(0, self.stcs_list_box.size() - 1),
+                                        False])
+                    self.add_setting('Local_Settings', configs, 'Accdb_Configs', False)
+                    self.main.destroy()
+
+    def delete_setting(self):
+        myresponse = messagebox.askokcancel(
+            'Delete Notice!',
+            'Deleting this setting will lose this setting forever. Would you like to proceed?',
+            parent=self.main)
+        if myresponse:
+            configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+
+            if configs:
+                for config in configs:
+                    if config[0] == self.acc_tbl_name.get():
+                        del config
+                        self.main.destroy()
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
