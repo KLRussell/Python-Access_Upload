@@ -23,7 +23,7 @@ class AccdbHandle:
 
     def __init__(self, file):
         self.file = file
-        self.asql = SQLHandle(global_objs['Settings'])
+        self.asql = SQLHandle(logobj=global_objs['Event_Log'], settingsobj=global_objs['Settings'])
         self.asql.connect(conn_type='alch')
         self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
 
@@ -124,13 +124,15 @@ class AccdbHandle:
         self.get_accdb_cols(table)
 
         if not self.configs:
-            header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table ({0}) in file ({1}).\nPlease add configuration setting below:'
+            header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table ({0}) in file ({1}).\nPlease add configuration setting below:'\
+                .format(table, os.path.basename(self.file))
             self.config_gui(table, header_text)
         else:
             self.get_config(table)
 
         if self.config and not self.validate_sql_table(self.config[3]):
-            header_text = 'Welcome to Access DB Upload!\nTable ({0}) does not exist in SQL Server.\nPlease fix configuration in Upload Settings:'
+            header_text = 'Welcome to Access DB Upload!\nTable ({0}) does not exist in SQL Server.\nPlease fix configuration in Upload Settings:'\
+                .format(table)
             self.config_gui(table, header_text, False)
 
         if self.config and not self.validate_cols(self.accdb_cols, self.config[2]):
@@ -217,7 +219,8 @@ def process_updates(files):
         global_objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
         myobj = AccdbHandle(file)
 
-        global_objs['SQL'].connect('accdb', accdb_file=file)
+        global_objs['SQL'].change_config(accdb_file=file)
+        global_objs['SQL'].connect('accdb')
 
         try:
             for table in myobj.get_accdb_tables():
@@ -260,8 +263,9 @@ def check_settings():
                 my_return = True
         finally:
             obj.sql_close()
+            obj.cancel()
+            del obj
 
-    del obj
     return my_return
 
 

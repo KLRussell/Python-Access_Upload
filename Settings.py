@@ -145,7 +145,7 @@ class SettingsGUI:
         button_frame.pack(fill="both")
 
         # Apply Header text to Header_Frame that describes purpose of GUI
-        header = Message(self.main, text=self.header_text, width=375, justify=CENTER)
+        header = Message(self.main, text=self.header_text, width=510, justify=CENTER)
         header.pack(in_=header_frame)
 
         # Apply Network Labels & Input boxes to the Network_Frame

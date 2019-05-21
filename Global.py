@@ -359,6 +359,7 @@ class SQLHandle:
 
     def test_conn(self, conn_type=None):
         assert(conn_type or self.conn_type)
+        myreturn = False
 
         if conn_type:
             self.conn_type = conn_type
@@ -372,25 +373,23 @@ class SQLHandle:
                 self.engine = mysql.create_engine(self.conn_str)
                 obj = self.engine.execute(mysql.text(myquery))
                 if obj._saved_cursor.arraysize > 0:
-                    self.close()
-                    return True
+                    myreturn = True
             else:
                 self.conn = pyodbc.connect(self.conn_str)
                 self.cursor = self.conn.cursor()
                 self.conn.commit()
 
                 if self.conn_type == 'accdb' and len(self.get_accdb_tables()) > 0:
-                    self.close()
-                    return True
+                    myreturn = True
                 else:
                     df = sql.read_sql(myquery, self.conn)
 
                     if len(df) > 0:
-                        self.close()
-                        return True
-        except:
+                        myreturn = True
+        finally:
             self.close()
-            return False
+
+        return myreturn
 
     def get_accdb_tables(self):
         if self.conn_type == 'accdb':
@@ -408,8 +407,6 @@ class SQLHandle:
         self.conn_type = conn_type
 
         if self.test_conn():
-            self.close()
-
             try:
                 if self.conn_type == 'alch':
                     self.engine = mysql.create_engine(self.conn_str)
