@@ -135,7 +135,7 @@ class AccdbHandle:
                 .format(table)
             self.config_gui(table, header_text, False)
 
-        if self.config and not self.validate_cols(self.accdb_cols, self.config[2]):
+        if self.config and not self.validate_cols(self.config[2], self.accdb_cols):
             self.config[1] = self.accdb_cols
             self.config[2] = None
             self.switch_config()
@@ -145,7 +145,7 @@ class AccdbHandle:
         if self.config:
             self.get_sql_cols(self.config[3])
 
-            if not self.validate_cols(self.sql_cols, self.config[4]):
+            if not self.validate_cols(self.config[4], self.sql_cols):
                 self.config[4] = None
                 self.switch_config()
                 header_text = 'Welcome to Access DB Upload!\nOne or more columns for sql table columns does not exist anymore.\nPlease redo configuration for sql table columns:'

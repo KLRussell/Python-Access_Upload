@@ -108,7 +108,7 @@ class SettingsGUI:
         self.acc_cols = acc_cols
 
         # Set GUI Geometry and GUI Title
-        self.main.geometry('520x682+500+80')
+        self.main.geometry('540x682+500+80')
         self.main.title('Access DB Upload Settings')
         self.main.resizable(False, False)
 
