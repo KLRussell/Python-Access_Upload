@@ -263,15 +263,15 @@ def check_settings():
                 my_return = True
         finally:
             obj.sql_close()
-            obj.cancel()
-            del obj
+
+    obj.cancel()
+    del obj
 
     return my_return
 
 
 if __name__ == '__main__':
     if check_settings():
-
         has_updates = check_for_updates()
 
         if has_updates:
