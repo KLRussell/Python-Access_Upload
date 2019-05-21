@@ -216,7 +216,7 @@ def check_for_updates():
 def process_updates(files):
     for file in files:
         processed = False
-        global_objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
+        global_objs['Event_Log'].write_log('Processing file [{0}]'.format(os.path.basename(file)))
         myobj = AccdbHandle(file)
 
         global_objs['SQL'].change_config(accdb_file=file)
