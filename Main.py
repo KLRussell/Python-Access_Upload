@@ -4,6 +4,7 @@
 from Global import grabobjs
 from Global import SQLHandle
 from Settings import SettingsGUI
+from time import sleep
 
 import os
 import pathlib as pl
@@ -124,22 +125,20 @@ class AccdbHandle:
         self.get_accdb_cols(table)
 
         if not self.configs:
-            header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table ({0}) in file ({1}).\nPlease add configuration setting below:'\
-                .format(table, os.path.basename(self.file))
+            header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table.\nPlease add configuration setting below:'
             self.config_gui(table, header_text)
         else:
             self.get_config(table)
 
         if self.config and not self.validate_sql_table(self.config[3]):
-            header_text = 'Welcome to Access DB Upload!\nTable ({0}) does not exist in SQL Server.\nPlease fix configuration in Upload Settings:'\
-                .format(table)
+            header_text = 'Welcome to Access DB Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
             self.config_gui(table, header_text, False)
 
         if self.config and not self.validate_cols(self.config[2], self.accdb_cols):
             self.config[1] = self.accdb_cols
             self.config[2] = None
             self.switch_config()
-            header_text = 'Welcome to Access DB Upload!\nOne or more columns for access columns does not exist anymore.\nPlease redo configuration for access table columns:'
+            header_text = 'Welcome to Access DB Upload!\nOne or more column does not exist.\nPlease redo config for access table columns:'
             self.config_gui(table, header_text, False)
 
         if self.config:
@@ -148,7 +147,7 @@ class AccdbHandle:
             if not self.validate_cols(self.config[4], self.sql_cols):
                 self.config[4] = None
                 self.switch_config()
-                header_text = 'Welcome to Access DB Upload!\nOne or more columns for sql table columns does not exist anymore.\nPlease redo configuration for sql table columns:'
+                header_text = 'Welcome to Access DB Upload!\nOne or more column does not exist.\nPlease redo config for sql table columns:'
                 self.config_gui(table, header_text, False)
 
         if self.config:
@@ -161,10 +160,12 @@ class AccdbHandle:
 
         if insert:
             obj.build_gui(header_text, table, self.accdb_cols)
+            sleep(2)
             self.get_config(table)
         else:
             old_config = self.config
             obj.build_gui(header_text)
+            sleep(2)
             self.get_config(table)
 
             if old_config == self.config:
