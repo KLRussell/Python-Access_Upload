@@ -170,8 +170,7 @@ class AccdbHandle:
                 self.config = None
 
     def process(self, table):
-        global_objs['Event_Log'].write_log('Uploading data from table [{0}] to sql table {1}'
-                                           .format(table, self.config[3]))
+        global_objs['Event_Log'].write_log('Reading data from accdb table {0}'.format(table))
 
         myresults = global_objs['SQL'].query('''
             SELECT
@@ -186,6 +185,8 @@ class AccdbHandle:
             if self.config[5]:
                 global_objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.config[3]))
                 self.asql.execute('truncate table {0}'.format(self.config[3]))
+
+            global_objs['Event_Log'].write_log('Uploading data to sql table {0}'.format(self.config[3]))
 
             self.asql.upload(myresults, self.config[3], index=False, index_label=None)
             global_objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
