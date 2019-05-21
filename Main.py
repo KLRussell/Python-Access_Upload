@@ -53,9 +53,9 @@ class AccdbHandle:
             return False
 
     def get_config(self, table):
-        if table and self.configs:
-            self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+        self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
 
+        if table and self.configs:
             for config in self.configs:
                 if config[0] == table:
                     self.config = config
