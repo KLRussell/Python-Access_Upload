@@ -170,7 +170,7 @@ class AccdbHandle:
                 self.config = None
 
     def process(self, table):
-        global_objs['Event_Log'].write_log('Reading data from accdb table {0}'.format(table))
+        global_objs['Event_Log'].write_log('Reading data from accdb table [{0}]'.format(table))
 
         myresults = global_objs['SQL'].query('''
             SELECT
