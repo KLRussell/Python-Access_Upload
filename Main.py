@@ -4,7 +4,6 @@
 from Global import grabobjs
 from Global import SQLHandle
 from Settings import SettingsGUI
-from time import sleep
 
 import os
 import pathlib as pl
@@ -18,6 +17,7 @@ global_objs = grabobjs(main_dir, 'AccessDB')
 
 
 class AccdbHandle:
+    configs = None
     config = None
     accdb_cols = None
     sql_cols = None
@@ -26,7 +26,6 @@ class AccdbHandle:
         self.file = file
         self.asql = SQLHandle(logobj=global_objs['Event_Log'], settingsobj=global_objs['Settings'])
         self.asql.connect(conn_type='alch')
-        self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
 
     @staticmethod
     def get_accdb_tables():
@@ -55,6 +54,8 @@ class AccdbHandle:
 
     def get_config(self, table):
         if table and self.configs:
+            self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+
             for config in self.configs:
                 if config[0] == table:
                     self.config = config
@@ -124,7 +125,7 @@ class AccdbHandle:
     def validate(self, table):
         self.get_accdb_cols(table)
         self.get_config(table)
-        
+
         if not self.config:
             header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table.\nPlease add configuration setting below:'
             self.config_gui(table, header_text)
@@ -159,12 +160,10 @@ class AccdbHandle:
 
         if insert:
             obj.build_gui(header_text, table, self.accdb_cols)
-            sleep(2)
             self.get_config(table)
         else:
             old_config = self.config
             obj.build_gui(header_text)
-            sleep(2)
             self.get_config(table)
 
             if old_config == self.config:
