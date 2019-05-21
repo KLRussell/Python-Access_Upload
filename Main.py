@@ -123,12 +123,11 @@ class AccdbHandle:
 
     def validate(self, table):
         self.get_accdb_cols(table)
-
-        if not self.configs:
+        self.get_config(table)
+        
+        if not self.config:
             header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table.\nPlease add configuration setting below:'
             self.config_gui(table, header_text)
-        else:
-            self.get_config(table)
 
         if self.config and not self.validate_sql_table(self.config[3]):
             header_text = 'Welcome to Access DB Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
