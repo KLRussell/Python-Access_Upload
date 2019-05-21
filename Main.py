@@ -9,10 +9,11 @@ import os
 import pathlib as pl
 import datetime
 
-CurrDir = os.path.dirname(os.path.abspath(__file__))
-AccdbDir = os.path.join(CurrDir, "02_Process")
-ProcessedDir = os.path.join(CurrDir, "03_Processed")
-global_objs = grabobjs(CurrDir, 'AccessDB')
+curr_dir = os.path.dirname(os.path.abspath(__file__))
+main_dir = os.path.dirname(curr_dir)
+AccdbDir = os.path.join(main_dir, "02_Process")
+ProcessedDir = os.path.join(main_dir, "03_Processed")
+global_objs = grabobjs(main_dir, 'AccessDB')
 
 
 class AccdbHandle:
