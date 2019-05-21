@@ -3,6 +3,7 @@
 
 from Global import grabobjs
 from Global import SQLHandle
+from Settings import SettingsGUI
 
 import os
 import pathlib as pl
@@ -11,25 +12,23 @@ import datetime
 CurrDir = os.path.dirname(os.path.abspath(__file__))
 AccdbDir = os.path.join(CurrDir, "02_Process")
 ProcessedDir = os.path.join(CurrDir, "03_Processed")
-Global_Objs = grabobjs(CurrDir, 'AccessDB')
+global_objs = grabobjs(CurrDir, 'AccessDB')
 
 
 class AccdbHandle:
-    truncate = False
+    config = None
     accdb_cols = None
     sql_cols = None
-    from_cols = None
-    to_table = None
-    to_cols = None
 
     def __init__(self, file):
         self.file = file
-        self.asql = SQLHandle(Global_Objs['Settings'])
+        self.asql = SQLHandle(global_objs['Settings'])
         self.asql.connect(conn_type='alch')
+        self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
 
     @staticmethod
     def get_accdb_tables():
-        myresults = Global_Objs['SQL'].get_accdb_tables()
+        myresults = global_objs['SQL'].get_accdb_tables()
 
         if len(myresults) > 0:
             return myresults
@@ -52,8 +51,26 @@ class AccdbHandle:
         else:
             return False
 
+    def get_config(self, table):
+        if table and self.configs:
+            for config in self.configs:
+                if config[0] == table:
+                    self.config = config
+                    break
+
+    def switch_config(self):
+        if self.configs and self.config:
+            for config in self.configs:
+                if config == self.config:
+                    self.configs.remove(config)
+                    break
+
+            self.configs.append(self.config)
+            global_objs['Local_Settings'].del_item('Accdb_Configs')
+            global_objs['Local_Settings'].add_item('Accdb_Configs', self.configs)
+
     def get_accdb_cols(self, table):
-        myresults = Global_Objs['SQL'].query('''
+        myresults = global_objs['SQL'].query('''
             SELECT TOP 1 *
             FROM [{0}]'''.format(table))
 
@@ -63,7 +80,7 @@ class AccdbHandle:
 
         self.accdb_cols = myresults.columns.tolist()
 
-    def get_sql_cols(self):
+    def get_sql_cols(self, table):
         myresults = self.asql.query('''
             SELECT
                 Column_Name
@@ -74,7 +91,7 @@ class AccdbHandle:
                 TABLE_SCHEMA = '{0}'
                     AND
                 TABLE_NAME = '{1}'
-        '''.format(self.to_table.split('.')[0], self.to_table.split('.')[1]))
+        '''.format(table.split('.')[0], table.split('.')[1]))
 
         if len(myresults) < 1:
             raise Exception('SQL Table {} has no valid tables in the access database file'.format(self.to_table))
@@ -103,156 +120,77 @@ class AccdbHandle:
             return False
 
     def validate(self, table):
-        self.accdb_cols = None
-        self.from_cols = None
-        self.to_cols = None
-        self.to_table = None
-        self.sql_cols = None
         self.get_accdb_cols(table)
 
-        configs = Global_Objs['Local_Settings'].grab_item('Accdb_Configs')
-
-        if not configs:
-            if self.add_config(table):
-                Global_Objs['Local_Settings'].add_item('Accdb_Configs', [[table, self.from_cols, self.to_table,
-                                                                         self.to_cols, self.truncate]])
-                return True
-            else:
-                return False
+        if not self.configs:
+            header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table ({0}) in file ({1}).\nPlease add configuration setting below:'
+            self.config_gui(table, header_text)
         else:
-            for config in configs:
-                if table == config[0]:
-                    self.from_cols = config[1]
-                    self.to_table = config[2]
-                    self.to_cols = config[3]
-                    if len(config) == 5 and config[4]:
-                        self.truncate = config[4]
-                    self.get_sql_cols()
+            self.get_config(table)
 
-                    if not self.validate_cols(self.from_cols, self.accdb_cols):
-                        Global_Objs['Event_Log'].write_log(
-                            'Stored settings for {0} has one or more columns that is not found in file {1} '.format(
-                                table, os.path.basename(self.file)), 'error')
-                        return False
+        if self.config and not self.validate_sql_table(self.config[3]):
+            header_text = 'Welcome to Access DB Upload!\nTable ({0}) does not exist in SQL Server.\nPlease fix configuration in Upload Settings:'
+            self.config_gui(table, header_text, False)
 
-                    if not self.validate_sql_table(self.to_table):
-                        Global_Objs['Event_Log'].write_log(
-                            'SQL TBL {0} has stored settings, but table does not exist anymore'.format(
-                                self.to_table), 'error')
-                        return False
+        if self.config and not self.validate_cols(self.accdb_cols, self.config[2]):
+            self.config[1] = self.accdb_cols
+            self.config[2] = None
+            self.switch_config()
+            header_text = 'Welcome to Access DB Upload!\nOne or more columns for access columns does not exist anymore.\nPlease redo configuration for access table columns:'
+            self.config_gui(table, header_text, False)
 
-                    if not self.validate_cols(self.to_cols, self.sql_cols):
-                        Global_Objs['Event_Log'].write_log(
-                            'Stored settings for SQL TBL {0} has one or more columns that does not exist'.format(
-                                self.to_table), 'error')
-                        return False
+        if self.config:
+            self.get_sql_cols(self.config[3])
 
-            if not self.from_cols and not self.to_table and not self.to_cols:
-                if self.add_config(table):
-                    configs.append([table, self.from_cols, self.to_table, self.to_cols, self.truncate])
-                    Global_Objs['Local_Settings'].del_item('Accdb_Configs')
-                    Global_Objs['Local_Settings'].add_item('Accdb_Configs', configs)
-                    return True
-                else:
-                    return False
-            else:
-                return True
+            if not self.validate_cols(self.sql_cols, self.config[4]):
+                self.config[4] = None
+                self.switch_config()
+                header_text = 'Welcome to Access DB Upload!\nOne or more columns for sql table columns does not exist anymore.\nPlease redo configuration for sql table columns:'
+                self.config_gui(table, header_text, False)
 
-    def add_config(self, table):
-        myanswer = None
-
-        while not myanswer:
-            print('There is no configuration for table ({0}) in file ({1}). Would you like to add configuration? (yes, no)'
-                  .format(table, os.path.basename(self.file)))
-            myanswer = input()
-
-            if myanswer.lower() not in ['yes', 'no']:
-                myanswer = None
-
-        if myanswer.lower() == 'no':
+        if self.config:
+            return True
+        else:
             return False
 
-        myanswer = None
+    def config_gui(self, table, header_text, insert=True):
+        obj = SettingsGUI()
 
-        while not myanswer:
-            print('From these accdb columns, what columns would you like to pull information from:')
-            print('[{}]'.format(', '.join(self.accdb_cols)))
-            myanswer = input()
-
-            if myanswer:
-                myanswer = myanswer.replace(', ', ',').split(',')
-
-                if not self.validate_cols(myanswer, self.accdb_cols):
-                    myanswer = None
-
-        self.from_cols = myanswer
-        myanswer = None
-
-        while not myanswer:
-            print('Please input the SQL server (schema).(table) that this information will be appending to:')
-            myanswer = input()
-
-            if not self.validate_sql_table(myanswer):
-                myanswer = None
-
-        self.to_table = myanswer
-        self.get_sql_cols()
-        myanswer = None
-
-        while not myanswer:
-            print('From these sql table columns, please choose the columns that corresponds to the Access Table Columns where information will be inserted:')
-            print('SQL Table Cols: [{}]'.format(', '.join(self.sql_cols)))
-            print('Access Table Cols: [{}]'.format(', '.join(self.from_cols)))
-            myanswer = input()
-
-            if myanswer:
-                myanswer = myanswer.replace(', ', ',').split(',')
-
-                if not self.validate_cols(myanswer, self.sql_cols):
-                    myanswer = None
-
-        self.to_cols = myanswer
-        myanswer = None
-
-        while not myanswer:
-            print(
-                'Would you like to truncate the SQL TBL [{0}] before inserting? (yes, no)'.format(self.to_table))
-            myanswer = input()
-
-            if myanswer.lower() not in ['yes', 'no']:
-                myanswer = None
-
-        if myanswer.lower() == 'yes':
-            self.truncate = True
+        if insert:
+            obj.build_gui(header_text, table, self.accdb_cols)
+            self.get_config(table)
         else:
-            self.truncate = False
+            old_config = self.config
+            obj.build_gui(header_text)
+            self.get_config(table)
 
-        return True
+            if old_config == self.config:
+                self.config = None
 
     def process(self, table):
-        Global_Objs['Event_Log'].write_log('Uploading data from table [{0}] to sql table {1}'
-                                           .format(table, self.to_table))
+        global_objs['Event_Log'].write_log('Uploading data from table [{0}] to sql table {1}'
+                                           .format(table, self.config[3]))
 
-        myresults = Global_Objs['SQL'].query('''
+        myresults = global_objs['SQL'].query('''
             SELECT
                 [{0}]
             
             FROM [{1}]
-        '''.format('], ['.join(self.from_cols), table))
+        '''.format('], ['.join(self.config[2]), table))
 
         if not myresults.empty:
-            myresults.columns = self.to_cols
+            myresults.columns = self.config[4]
 
-            if self.truncate:
-                Global_Objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.to_table))
-                self.asql.execute('truncate table {0}'.format(self.to_table))
+            if self.config[5]:
+                global_objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.config[3]))
+                self.asql.execute('truncate table {0}'.format(self.config[3]))
 
-            self.asql.upload(myresults, self.to_table, index=False, index_label=None)
-            Global_Objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
-                                               .format(table, self.to_table))
+            self.asql.upload(myresults, self.config[3], index=False, index_label=None)
+            global_objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
+                                               .format(table, self.config[3]))
             return True
         else:
-            Global_Objs['Event_Log'].write_log('Failed to grab data from access table [{0}]. No update made'
+            global_objs['Event_Log'].write_log('Failed to grab data from access table [{0}]. No update made'
                                                .format(table), 'error')
             return False
 
@@ -275,21 +213,21 @@ def check_for_updates():
 def process_updates(files):
     for file in files:
         processed = False
-        Global_Objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
+        global_objs['Event_Log'].write_log('Processing file {0}'.format(os.path.basename(file)))
         myobj = AccdbHandle(file)
 
-        Global_Objs['SQL'].connect('accdb', accdb_file=file)
+        global_objs['SQL'].connect('accdb', accdb_file=file)
 
         try:
             for table in myobj.get_accdb_tables():
-                Global_Objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
+                global_objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
 
                 if myobj.validate(table) and myobj.process(table):
                     processed = True
 
         finally:
             myobj.close_asql()
-            Global_Objs['SQL'].close()
+            global_objs['SQL'].close()
 
         if processed:
             filename = os.path.basename(file)
@@ -298,20 +236,46 @@ def process_updates(files):
                 os.path.split(filename)[1])))
 
 
-if __name__ == '__main__':
+def check_settings():
+    my_return = False
+    obj = SettingsGUI()
+
     if not os.path.exists(AccdbDir):
         os.makedirs(AccdbDir)
 
     if not os.path.exists(ProcessedDir):
         os.makedirs(ProcessedDir)
 
-    has_updates = check_for_updates()
-
-    if has_updates:
-        Global_Objs['Event_Log'].write_log('Found {} files to process'.format(len(has_updates)))
-
-        process_updates(has_updates)
+    if not global_objs['Settings'].grab_item('Server') \
+            or not global_objs['Settings'].grab_item('Database'):
+        header_text = 'Welcome to Access DB Upload!\nSettings haven''t been established.\nPlease fill out all empty fields below:'
+        obj.build_gui(header_text)
     else:
-        Global_Objs['Event_Log'].write_log('Found no files to process', 'warning')
+        try:
+            if not obj.sql_connect():
+                header_text = 'Welcome to Access DB Upload!\nNetwork settings are invalid.\nPlease fix the network settings below:'
+                obj.build_gui(header_text)
+            else:
+                my_return = True
+        finally:
+            obj.sql_close()
+
+    del obj
+    return my_return
+
+
+if __name__ == '__main__':
+    if check_settings():
+
+        has_updates = check_for_updates()
+
+        if has_updates:
+            global_objs['Event_Log'].write_log('Found {} files to process'.format(len(has_updates)))
+
+            process_updates(has_updates)
+        else:
+            global_objs['Event_Log'].write_log('Found no files to process', 'warning')
+    else:
+        global_objs['Event_Log'].write_log('Settings Mode was established. Need to re-run script', 'warning')
 
     os.system('pause')
