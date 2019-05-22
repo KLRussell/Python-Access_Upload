@@ -154,7 +154,7 @@ class SettingsGUI:
         server_txtbox = Entry(self.main, textvariable=self.server)
         server_label.pack(in_=network_frame, side=LEFT)
         server_txtbox.pack(in_=network_frame, side=LEFT)
-        server_txtbox.bind('<KeyRelease>', self.check_network)
+        server_txtbox.bind('<FocusOut>', self.check_network)
 
         #     Server Database Input Box
         database_label = Label(self.main, text='Database:')
@@ -411,6 +411,37 @@ class SettingsGUI:
                             self.atc_list_box.insert('end', col)
 
                         self.atc_list_box.select_set(self.stc_list_sel)
+                else:
+                    self.atc_list_box.configure(state=DISABLED)
+                    self.atcs_list_box.configure(state=DISABLED)
+                    self.acc_right_button.configure(state=DISABLED)
+                    self.acc_all_right_button.configure(state=DISABLED)
+                    self.acc_left_button.configure(state=DISABLED)
+                    self.acc_all_left_button.configure(state=DISABLED)
+                    self.sql_tbl_name_txtbox.configure(state=DISABLED)
+                    self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
+            else:
+                self.save_button.configure(state=DISABLED)
+                self.extract_button.configure(state=DISABLED)
+                self.atc_list_box.configure(state=DISABLED)
+                self.atcs_list_box.configure(state=DISABLED)
+                self.acc_right_button.configure(state=DISABLED)
+                self.acc_all_right_button.configure(state=DISABLED)
+                self.acc_left_button.configure(state=DISABLED)
+                self.acc_all_left_button.configure(state=DISABLED)
+                self.sql_tbl_name_txtbox.configure(state=DISABLED)
+                self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
+        else:
+            self.save_button.configure(state=DISABLED)
+            self.extract_button.configure(state=DISABLED)
+            self.atc_list_box.configure(state=DISABLED)
+            self.atcs_list_box.configure(state=DISABLED)
+            self.acc_right_button.configure(state=DISABLED)
+            self.acc_all_right_button.configure(state=DISABLED)
+            self.acc_left_button.configure(state=DISABLED)
+            self.acc_all_left_button.configure(state=DISABLED)
+            self.sql_tbl_name_txtbox.configure(state=DISABLED)
+            self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
 
     # Function adjusts selection of item when user clicks item (ATC List)
     def atc_select(self, event):

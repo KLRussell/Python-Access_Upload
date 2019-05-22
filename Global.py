@@ -386,6 +386,8 @@ class SQLHandle:
 
                     if len(df) > 0:
                         myreturn = True
+        except:
+            pass
         finally:
             self.close()
 
