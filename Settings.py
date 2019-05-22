@@ -36,7 +36,7 @@ class SettingsGUI:
     sql_all_left_button = None
     sql_tbl_name_txtbox = None
     sql_tbl_truncate_checkbox = None
-    extract_button = None
+    cancel_button = None
     upload_button = None
     complete_sql_tbl_list = pd.DataFrame()
 
@@ -273,8 +273,8 @@ class SettingsGUI:
         self.save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
 
         #     Cancel Button
-        self.extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
-        self.extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+        self.cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        self.cancel_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
         #     Upload Settings Button
         self.upload_button = Button(self.main, text='Upload Settings', width=15, command=self.upload_settings)
@@ -292,7 +292,7 @@ class SettingsGUI:
         self.fill_textbox('Settings', self.database, 'Database')
         if not self.server.get() or not self.database.get() or not self.asql.test_conn('alch'):
             self.save_button.configure(state=DISABLED)
-            self.extract_button.configure(state=DISABLED)
+            self.upload_button.configure(state=DISABLED)
             self.atc_list_box.configure(state=DISABLED)
             self.atcs_list_box.configure(state=DISABLED)
             self.acc_right_button.configure(state=DISABLED)
@@ -388,14 +388,14 @@ class SettingsGUI:
             self.asql.change_config(server=self.server.get(), database=self.database.get())
 
             if self.asql.test_conn('alch'):
-                self.save_button.configure(state=NORMAL)
-                self.extract_button.configure(state=NORMAL)
+                self.upload_button.configure(state=NORMAL)
                 self.add_setting('Settings', self.server.get(), 'Server')
                 self.add_setting('Settings', self.database.get(), 'Database')
                 self.asql.connect('alch')
                 self.grab_tables()
 
                 if self.acc_table:
+                    self.save_button.configure(state=NORMAL)
                     self.atc_list_box.configure(state=NORMAL)
                     self.atcs_list_box.configure(state=NORMAL)
                     self.acc_right_button.configure(state=NORMAL)
@@ -412,6 +412,7 @@ class SettingsGUI:
 
                         self.atc_list_box.select_set(self.stc_list_sel)
                 else:
+                    self.save_button.configure(state=DISABLED)
                     self.atc_list_box.configure(state=DISABLED)
                     self.atcs_list_box.configure(state=DISABLED)
                     self.acc_right_button.configure(state=DISABLED)
@@ -421,8 +422,7 @@ class SettingsGUI:
                     self.sql_tbl_name_txtbox.configure(state=DISABLED)
                     self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
             else:
-                self.save_button.configure(state=DISABLED)
-                self.extract_button.configure(state=DISABLED)
+                self.upload_button.configure(state=DISABLED)
                 self.atc_list_box.configure(state=DISABLED)
                 self.atcs_list_box.configure(state=DISABLED)
                 self.acc_right_button.configure(state=DISABLED)
@@ -433,7 +433,7 @@ class SettingsGUI:
                 self.sql_tbl_truncate_checkbox.configure(state=DISABLED)
         else:
             self.save_button.configure(state=DISABLED)
-            self.extract_button.configure(state=DISABLED)
+            self.upload_button.configure(state=DISABLED)
             self.atc_list_box.configure(state=DISABLED)
             self.atcs_list_box.configure(state=DISABLED)
             self.acc_right_button.configure(state=DISABLED)
@@ -752,8 +752,8 @@ class ChangeUploadSettings:
         self.save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
 
         #     Cancel Button
-        extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
-        extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+        cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        cancel_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
         self.load_gui_fields()
 
@@ -1031,8 +1031,8 @@ class ChangeSetting:
         save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
 
         #     Cancel Button
-        extract_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
-        extract_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+        cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        cancel_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
         #     Delete Setting
         delete_button = Button(self.main, text='Delete Setting', width=15, command=self.delete_setting)
