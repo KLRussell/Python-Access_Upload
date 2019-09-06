@@ -6,6 +6,7 @@ from Global import CryptHandle
 
 import os
 import pandas as pd
+import ftplib
 
 # Global Variable declaration
 curr_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,6 +44,8 @@ class SettingsGUI:
     # Function that is executed upon creation of SettingsGUI class
     def __init__(self):
         self.header_text = 'Welcome to Access DB Upload Settings!\nSettings can be changed below.\nPress save when finished'
+
+        self.fpass_obj = global_objs['Settings'].grab_item('Email_Pass')
         self.asql = global_objs['SQL']
         self.main = Tk()
 
@@ -51,6 +54,9 @@ class SettingsGUI:
         self.database = StringVar()
         self.acc_tbl_name = StringVar()
         self.sql_tbl_name = StringVar()
+        self.fserver = StringVar()
+        self.fuser = StringVar()
+        self.fpass = StringVar()
         self.sql_tbl_truncate = IntVar()
 
         # GUI Bind On Destruction event
@@ -108,13 +114,14 @@ class SettingsGUI:
         self.acc_cols = acc_cols
 
         # Set GUI Geometry and GUI Title
-        self.main.geometry('540x682+500+80')
+        self.main.geometry('540x737+500+70')
         self.main.title('Access DB Upload Settings')
         self.main.resizable(False, False)
 
         # Set GUI Frames
         header_frame = Frame(self.main)
         network_frame = LabelFrame(self.main, text='Network Settings', width=444, height=70)
+        ftp_frame = LabelFrame(self.main, text="FTP Settings", width=444, height=70)
         add_upload_frame = LabelFrame(self.main, text='Add Upload Settings', width=444, height=210)
         acc_tbl_frame = LabelFrame(add_upload_frame, text='Access Table', width=444, height=105)
         acc_tbl_top_frame = Frame(acc_tbl_frame)
@@ -131,6 +138,7 @@ class SettingsGUI:
         # Apply Frames into GUI
         header_frame.pack()
         network_frame.pack(fill="both")
+        ftp_frame.pack(fill="both")
         add_upload_frame.pack(fill="both")
         acc_tbl_frame.grid(row=0)
         acc_tbl_top_frame.grid(row=0, column=0, columnspan=3, sticky=W+E)
@@ -151,17 +159,39 @@ class SettingsGUI:
         # Apply Network Labels & Input boxes to the Network_Frame
         #     SQL Server Input Box
         server_label = Label(self.main, text='Server:', padx=15, pady=7)
-        server_txtbox = Entry(self.main, textvariable=self.server)
+        server_txtbox = Entry(self.main, textvariable=self.server, width=25)
         server_label.pack(in_=network_frame, side=LEFT)
         server_txtbox.pack(in_=network_frame, side=LEFT)
         server_txtbox.bind('<FocusOut>', self.check_network)
 
         #     Server Database Input Box
         database_label = Label(self.main, text='Database:')
-        database_txtbox = Entry(self.main, textvariable=self.database)
+        database_txtbox = Entry(self.main, textvariable=self.database, width=25)
         database_txtbox.pack(in_=network_frame, side=RIGHT, pady=7, padx=15)
         database_label.pack(in_=network_frame, side=RIGHT)
         database_txtbox.bind('<KeyRelease>', self.check_network)
+
+        # Apply Widgets to the FTP_Frame
+        #     Host Server Input Box
+        fserver_label = Label(ftp_frame, text='Server:')
+        fserver_txtbox = Entry(ftp_frame, textvariable=self.fserver, width=15)
+        fserver_label.grid(row=0, column=0, padx=8, pady=5)
+        fserver_txtbox.grid(row=0, column=1, padx=8, pady=5)
+        fserver_txtbox.bind('<KeyRelease>', self.check_ftp)
+
+        #     Host User Input Box
+        fuser_label = Label(ftp_frame, text='Username:')
+        fuser_txtbox = Entry(ftp_frame, textvariable=self.fuser, width=15)
+        fuser_label.grid(row=0, column=2, padx=8, pady=5)
+        fuser_txtbox.grid(row=0, column=3, padx=8, pady=5)
+        fuser_txtbox.bind('<KeyRelease>', self.check_ftp)
+
+        #     Host Pass Input Box
+        fpass_label = Label(ftp_frame, text='Password:')
+        fpass_txtbox = Entry(ftp_frame, textvariable=self.fpass, width=15)
+        fpass_label.grid(row=0, column=4, padx=8, pady=5)
+        fpass_txtbox.grid(row=0, column=5, padx=8, pady=5)
+        fpass_txtbox.bind('<KeyRelease>', self.hide_pass)
 
         # Apply Widgets to the Acc_TBL_Frame
         #     Access Table Name Input Box
@@ -202,8 +232,8 @@ class SettingsGUI:
         #     Access Table Column Selection List
         atcs_xscrollbar = Scrollbar(acc_tbl_bottom_right_frame, orient='horizontal')
         atcs_yscrollbar = Scrollbar(acc_tbl_bottom_right_frame, orient='vertical')
-        self.atcs_list_box = Listbox(acc_tbl_bottom_right_frame, selectmode=SINGLE, width=30, yscrollcommand=atcs_yscrollbar,
-                                     xscrollcommand=atcs_xscrollbar)
+        self.atcs_list_box = Listbox(acc_tbl_bottom_right_frame, selectmode=SINGLE, width=30,
+                                     yscrollcommand=atcs_yscrollbar, xscrollcommand=atcs_xscrollbar)
         atcs_xscrollbar.config(command=self.atcs_list_box.xview)
         atcs_yscrollbar.config(command=self.atcs_list_box.yview)
         self.atcs_list_box.grid(row=0, column=3, padx=8, pady=5)
@@ -222,7 +252,8 @@ class SettingsGUI:
         self.sql_tbl_name_txtbox.bind('<KeyRelease>', self.check_tbl_name)
 
         #     Truncate Check Box
-        self.sql_tbl_truncate_checkbox = Checkbutton(sql_tbl_top_frame, text='Truncate TBL', variable=self.sql_tbl_truncate)
+        self.sql_tbl_truncate_checkbox = Checkbutton(sql_tbl_top_frame, text='Truncate TBL',
+                                                     variable=self.sql_tbl_truncate)
         self.sql_tbl_truncate_checkbox.grid(row=0, column=2, padx=8, pady=5)
 
         #     SQL Table Column List
@@ -290,6 +321,10 @@ class SettingsGUI:
     def fill_gui(self):
         self.fill_textbox('Settings', self.server, 'Server')
         self.fill_textbox('Settings', self.database, 'Database')
+        self.fill_textbox('Local_Settings', self.fserver, 'FTP Host')
+        self.fill_textbox('Local_Settings', self.fuser, 'FTP User')
+        self.fill_textbox('Local_Settings', self.fpass, 'FTP Password')
+
         if not self.server.get() or not self.database.get() or not self.asql.test_conn('alch'):
             self.save_button.configure(state=DISABLED)
             self.upload_button.configure(state=DISABLED)
@@ -330,6 +365,66 @@ class SettingsGUI:
         self.sql_all_right_button.configure(state=DISABLED)
         self.sql_left_button.configure(state=DISABLED)
         self.sql_all_left_button.configure(state=DISABLED)
+
+    def check_ftp(self, event):
+        if self.fserver.get() and self.fuser.get() and self.fpass_obj.decrypt_text():
+            try:
+                ftp = ftplib.FTP(self.fserver.get())
+
+                try:
+                    ftp.login(self.fuser.get(), self.fpass_obj.decrypt_text())
+                    self.add_setting('Local_Settings', self.fserver.get(), 'FTP Host')
+                    self.add_setting('Local_Settings', self.fuser.get(), 'FTP User')
+                    self.add_setting('Local_Settings', self.fpass_obj.decrypt_text(), 'FTP Password')
+                finally:
+                    ftp.quit()
+                    return
+            except:
+                return
+
+    def hide_pass(self, event):
+        if self.fpass_obj:
+            currpass = self.fpass_obj.decrypt_text()
+
+            if len(self.fpass.get()) > len(currpass):
+                i = 0
+
+                for letter in self.fpass.get():
+                    if letter != '*':
+                        if i > len(currpass) - 1:
+                            currpass += letter
+                        else:
+                            mytext = list(currpass)
+                            mytext.insert(i, letter)
+                            currpass = ''.join(mytext)
+                    i += 1
+            elif len(self.fpass.get()) > 0:
+                i = 0
+
+                for letter in self.fpass.get():
+                    if letter != '*':
+                        mytext = list(currpass)
+                        mytext[i] = letter
+                        currpass = ''.join(mytext)
+                    i += 1
+
+                if len(currpass) - i > 0:
+                    currpass = currpass[:i]
+            else:
+                currpass = None
+
+            if currpass:
+                self.fpass_obj.encrypt_text(currpass)
+                self.fpass.set('*' * len(self.fpass_obj.decrypt_text()))
+            else:
+                self.fpass_obj = None
+                self.fpass.set("")
+        else:
+            self.fpass_obj = CryptHandle()
+            self.fpass_obj.encrypt_text(self.fpass.get())
+            self.fpass.set('*' * len(self.fpass_obj.decrypt_text()))
+
+        self.check_ftp(event)
 
     def populate_tbl_lists(self):
         mytbl = self.sql_tbl_name.get().split('.')
