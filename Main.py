@@ -7,18 +7,25 @@
 from Global import grabobjs
 from Global import SQLHandle
 from Settings import SettingsGUI
+from Settings import AccSettingsGUI
 
 import subprocess
 import rarfile
 import traceback
 import ftplib
 import os
-import datetime
 import pathlib as pl
+import smtplib
 import zipfile
 import shutil
+import sys
 
-curr_dir = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    application_path = sys.executable
+else:
+    application_path = __file__
+
+curr_dir = os.path.dirname(os.path.abspath(application_path))
 main_dir = os.path.dirname(curr_dir)
 ProcessDir = os.path.join(main_dir, "02_Process")
 ProcessedDir = os.path.join(main_dir, "03_Processed")
@@ -218,18 +225,18 @@ class AccdbHandle:
         self.get_config(table)
 
         if not self.config:
-            header_text = 'Welcome to Access DB Upload!\nThere is no configuration for table.\nPlease add configuration setting below:'
+            header_text = 'Welcome to STC Upload!\nThere is no configuration for table.\nPlease add configuration setting below:'
             self.config_gui(table, header_text)
 
         if self.config and not self.validate_sql_table(self.config[3]):
             self.config[3] = None
-            header_text = 'Welcome to Access DB Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
+            header_text = 'Welcome to STC Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
             self.config_gui(table, header_text, False)
 
         if self.config and not self.validate_cols(self.config[2], self.accdb_cols):
             self.config[2] = None
             self.switch_config()
-            header_text = 'Welcome to Access DB Upload!\nOne or more column does not exist.\nPlease redo config for access table columns:'
+            header_text = 'Welcome to STC Upload!\nOne or more column does not exist.\nPlease redo config for access table columns:'
             self.config_gui(table, header_text, False)
 
         if self.config:
@@ -238,12 +245,12 @@ class AccdbHandle:
             if not self.validate_cols(self.config[4], self.sql_cols):
                 self.config[4] = None
                 self.switch_config()
-                header_text = 'Welcome to Access DB Upload!\nOne or more column does not exist.\nPlease redo config for sql table columns:'
+                header_text = 'Welcome to STC Upload!\nOne or more column does not exist.\nPlease redo config for sql table columns:'
                 self.config_gui(table, header_text, False)
 
             if not self.validate_cols(['Source_File'], self.sql_cols):
                 self.switch_config()
-                header_text = 'Welcome to Access DB Upload!\nSQL Table does not have a Source_File column:'
+                header_text = 'Welcome to STC Upload!\nSQL Table does not have a Source_File column:'
                 self.config_gui(table, header_text, False)
 
                 if not self.validate_cols(['Source_File'], self.sql_cols):
@@ -269,7 +276,7 @@ class AccdbHandle:
         '''.format(self.config[3], self.batch)).empty
 
     def config_gui(self, table, header_text, insert=True):
-        obj = SettingsGUI()
+        obj = AccSettingsGUI()
 
         if insert:
             obj.build_gui(header_text, table, self.accdb_cols)
@@ -388,6 +395,7 @@ def process_updates(files):
 
 
 def check_settings():
+    header_text = None
     my_return = False
     obj = SettingsGUI()
 
@@ -401,18 +409,57 @@ def check_settings():
             or not global_objs['Settings'].grab_item('Database') \
             or not global_objs['Local_Settings'].grab_item('FTP Host') \
             or not global_objs['Local_Settings'].grab_item('FTP User') \
-            or not global_objs['Local_Settings'].grab_item('FTP Password'):
+            or not global_objs['Local_Settings'].grab_item('FTP Password') \
+            or not global_objs['Settings'].grab_item('Email_Server') \
+            or not global_objs['Settings'].grab_item('Email_User') \
+            or not global_objs['Settings'].grab_item('Email_Pass') \
+            or not global_objs['Local_Settings'].grab_item('Email_To') \
+            or not global_objs['Local_Settings'].grab_item('Email_From'):
         header_text = 'Welcome to STC Upload!\nSettings haven''t been established.\nPlease fill out all empty fields below:'
-        obj.build_gui(header_text)
     else:
         try:
             if not obj.sql_connect():
                 header_text = 'Welcome to STC Upload!\nNetwork settings are invalid.\nPlease fix the network settings below:'
-                obj.build_gui(header_text)
             else:
-                my_return = True
+                if global_objs['Settings'].grab_item('Email_Port'):
+                    port = global_objs['Settings'].grab_item('Email_Port').decrypt_text()
+                else:
+                    port = 587
+
+                try:
+                    server = smtplib.SMTP(str(global_objs['Settings'].grab_item('Email_Server').decrypt_text()),
+                                          int(port))
+                    try:
+                        server.ehlo()
+                        server.starttls()
+                        server.ehlo()
+                        server.login(global_objs['Settings'].grab_item('Email_User').decrypt_text(),
+                                     global_objs['Settings'].grab_item('Email_Pass').decrypt_text())
+
+                        try:
+                            ftp = ftplib.FTP(global_objs['Local_Settings'].grab_item('FTP Host').decrypt_text())
+
+                            try:
+                                ftp.login(global_objs['Local_Settings'].grab_item('FTP User').decrypt_text(),
+                                          global_objs['Local_Settings'].grab_item('FTP Password').decrypt_text())
+                                my_return = True
+                            except:
+                                header_text = 'Welcome to STC Upload!\nFTP User and/or Pass are invalid.\nPlease fix below:'
+                            finally:
+                                ftp.quit()
+                        except:
+                            header_text = 'Welcome to STC Upload!\nFTP server does not exist.\nPlease fix below:'
+                    except:
+                        header_text = 'Welcome to STC Upload!\nEmail User and/or Pass are invalid.\nPlease fix below:'
+                    finally:
+                        server.close()
+                except:
+                    header_text = 'Welcome to STC Upload!\nEmail server does not exist.\nPlease fix below:'
         finally:
             obj.sql_close()
+
+    if header_text:
+        obj.build_gui(header_text)
 
     obj.cancel()
     del obj
