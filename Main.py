@@ -9,10 +9,8 @@ from Global import SQLHandle
 from Settings import SettingsGUI
 from Settings import AccSettingsGUI
 from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
 from email.mime.text import MIMEText
 from email.utils import formatdate
-from email import encoders
 
 import subprocess
 import rarfile
