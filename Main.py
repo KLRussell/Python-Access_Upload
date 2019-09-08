@@ -8,6 +8,11 @@ from Global import grabobjs
 from Global import SQLHandle
 from Settings import SettingsGUI
 from Settings import AccSettingsGUI
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email.utils import formatdate
+from email import encoders
 
 import subprocess
 import rarfile
@@ -15,6 +20,7 @@ import traceback
 import ftplib
 import os
 import pathlib as pl
+import pandas as pd
 import smtplib
 import zipfile
 import shutil
@@ -118,12 +124,16 @@ class AccdbHandle:
     config = None
     accdb_cols = None
     sql_cols = None
+    upload_df = pd.DataFrame()
 
     def __init__(self, file, batch):
         self.file = file
         self.batch = batch
         self.asql = SQLHandle(logobj=global_objs['Event_Log'], settingsobj=global_objs['Settings'])
         self.asql.connect(conn_type='alch')
+
+        if not self.email_port:
+            self.email_port = 587
 
     @staticmethod
     def get_accdb_tables():
@@ -262,7 +272,7 @@ class AccdbHandle:
             if self.updates_not_exists():
                 return True
             else:
-                global_objs['Event_Log'].write_log('Updates already exist for SQL table %s' % self.config[3], 'error')
+                global_objs['Event_Log'].write_log('Updates already exist for SQL table %s' % self.config[3], 'warning')
                 return False
         else:
             return False
@@ -292,7 +302,7 @@ class AccdbHandle:
     def process(self, table):
         global_objs['Event_Log'].write_log('Reading data from accdb table [{0}]'.format(table))
 
-        myresults = global_objs['SQL'].query('''
+        self.upload_df = global_objs['SQL'].query('''
             SELECT
                 [{0}],
                 'Updated Records {2}' As Source_File
@@ -300,15 +310,15 @@ class AccdbHandle:
             FROM [{1}]
         '''.format('], ['.join(self.config[2]), table, self.batch))
 
-        if not myresults.empty:
-            myresults.columns = self.config[4] + ('Source_File',)
+        if not self.upload_df.empty:
+            self.upload_df.columns = self.config[4] + ('Source_File',)
 
             if self.config[5]:
                 global_objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.config[3]))
                 self.asql.execute('truncate table {0}'.format(self.config[3]))
 
             global_objs['Event_Log'].write_log('Uploading data to sql table {0}'.format(self.config[3]))
-            self.asql.upload(myresults, self.config[3], index=False, index_label=None)
+            self.asql.upload(self.upload_df, self.config[3], index=False, index_label=None)
             global_objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
                                                .format(table, self.config[3]))
             return True
@@ -342,6 +352,50 @@ class AccdbHandle:
     def close_asql(self):
         self.asql.close()
 
+    def get_success_stats(self):
+        return [self.config[2], self.config[3], len(self.upload_df)]
+
+
+def email_results(batch, upload_results):
+    message = MIMEMultipart()
+    email_server = global_objs['Settings'].grab_item('Email_Server')
+    email_user = global_objs['Settings'].grab_item('Email_User')
+    email_pass = global_objs['Settings'].grab_item('Email_Pass')
+    email_port = global_objs['Settings'].grab_item('Email_Port')
+    email_from = global_objs['Local_Settings'].grab_item('Email_From')
+    email_to = global_objs['Local_Settings'].grab_item('Email_To')
+    email_cc = global_objs['Local_Settings'].grab_item('Email_CC')
+
+    message['From'] = email_from.decrypt_text()
+    message['To'] = email_to.decrypt_text()
+    message['Cc'] = email_cc.decrypt_text()
+    message['Date'] = formatdate(localtime=True)
+
+    body = 'Happy Friday DART,\n\nThe following items have been successfully uploaded to SQL Server:\n\n'
+
+    for result in upload_results:
+        body += '\t* {0} -> {1} ({2} records)'.format(result[0], result[1], result[2])
+
+    body += "\n\nYours Truly\n\nThe CDA's"
+
+    try:
+        server = smtplib.SMTP(str(email_server.decrypt_text()),
+                              int(email_port))
+        try:
+            server.ehlo()
+            server.starttls()
+            server.ehlo()
+            server.login(email_user.decrypt_text(), email_pass.decrypt_text())
+            message['Subject'] = 'STC Updated Records %s' % batch
+            message.attach(MIMEText(body))
+            server.sendmail(email_from.decrypt_text(), email_to.decrypt_text(), str(message))
+        except:
+            global_objs['Event_Log'].write_log('Failed to log into email server to send e-mail', 'error')
+        finally:
+            server.close()
+    except:
+        global_objs['Event_Log'].write_log('Failed to connect to email server to send e-mail', 'error')
+
 
 def check_for_updates():
     file_paths = []
@@ -356,6 +410,8 @@ def check_for_updates():
 
 def process_updates(files):
     paths_to_remove = []
+    upload_results = []
+    batch = None
 
     for file in files:
         batch = os.path.basename(os.path.dirname(os.path.dirname(file)))
@@ -371,6 +427,7 @@ def process_updates(files):
 
                 if myobj.validate(table) and myobj.process(table):
                     myobj.apply_features(table)
+                    upload_results.append(myobj.get_success_stats())
 
         finally:
             myobj.close_asql()
@@ -392,6 +449,9 @@ def process_updates(files):
 
     for path in paths_to_remove:
         shutil.rmtree(path)
+
+    if upload_results:
+        email_results(batch, upload_results)
 
 
 def check_settings():
