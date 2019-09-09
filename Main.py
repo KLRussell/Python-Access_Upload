@@ -12,6 +12,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
 
+import datetime
 import subprocess
 import rarfile
 import traceback
@@ -374,7 +375,7 @@ def email_results(batch, upload_results):
     message['Cc'] = email_cc.decrypt_text()
     message['Date'] = formatdate(localtime=True)
 
-    body.append('Happy Friday DART,')
+    body.append('Happy %s DART,' % datetime.datetime.today().strftime("%A"))
     body.append('The following items have been successfully uploaded to SQL Server:')
 
     for result in upload_results:
