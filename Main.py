@@ -381,7 +381,7 @@ def email_results(batch, upload_results):
     for result in upload_results:
         body.append('\t{3} {0} -> {1} ({2} records)'.format(result[0], result[1], result[2], chr(149)))
 
-    body.append("Yours Truly,\n\n")
+    body.append("Yours Truly,")
     body.append("The CDA's")
 
     try:
