@@ -359,7 +359,7 @@ def email_results(batch, upload_results):
     email_server = global_objs['Settings'].grab_item('Email_Server')
     email_user = global_objs['Settings'].grab_item('Email_User')
     email_pass = global_objs['Settings'].grab_item('Email_Pass')
-    email_port = global_objs['Settings'].grab_item('Email_Port')
+    email_port = global_objs['Settings'].grab_item('Email_Port').decrypt_text()
     email_from = global_objs['Local_Settings'].grab_item('Email_From')
     email_to = global_objs['Local_Settings'].grab_item('Email_To')
     email_cc = global_objs['Local_Settings'].grab_item('Email_CC')
