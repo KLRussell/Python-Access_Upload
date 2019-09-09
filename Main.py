@@ -324,6 +324,8 @@ class AccdbHandle:
             return False
 
     def apply_features(self, table):
+        global_objs['Event_Log'].write_log('Appending features to %s if they exist' % self.config[3])
+
         if self.validate_cols(['Edit_DT'], self.sql_cols):
             self.asql.execute('''
                 UPDATE {0}
@@ -348,8 +350,8 @@ class AccdbHandle:
     def close_asql(self):
         self.asql.close()
 
-    def get_success_stats(self):
-        return [self.config[2], self.config[3], len(self.upload_df)]
+    def get_success_stats(self, table):
+        return [table, self.config[3], len(self.upload_df)]
 
 
 def email_results(batch, upload_results):
@@ -429,7 +431,7 @@ def process_updates(files):
 
                 if myobj.validate(table) and myobj.process(table):
                     myobj.apply_features(table)
-                    upload_results.append(myobj.get_success_stats())
+                    upload_results.append(myobj.get_success_stats(table))
 
         finally:
             myobj.close_asql()
