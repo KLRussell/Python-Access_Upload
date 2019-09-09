@@ -381,7 +381,8 @@ def email_results(batch, upload_results):
     for result in upload_results:
         body.append('\t{3} {0} -> {1} ({2} records)'.format(result[0], result[1], result[2], chr(95)))
 
-    body.append("Yours Truly\n\nThe CDA's")
+    body.append("Yours Truly,\n\n")
+    body.append("The CDA's")
 
     try:
         server = smtplib.SMTP(str(email_server.decrypt_text()),
