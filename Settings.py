@@ -537,12 +537,17 @@ class AccSettingsGUI:
 
         self.asql = global_objs['SQL']
 
-        if class_obj and root and config:
-            self.class_obj = class_obj
-            self.main = Toplevel(root)
+        if config:
             self.config = config
         else:
+            self.config = None
+
+        if class_obj and root:
+            self.class_obj = class_obj
+            self.main = Toplevel(root)
+        else:
             self.main = Tk()
+            self.class_obj = None
 
         # GUI Variables
         self.acc_tbl_name = StringVar()
@@ -764,7 +769,7 @@ class AccSettingsGUI:
         self.cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
         self.cancel_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
 
-        if self.config:
+        if self.class_obj:
             #     Delete Setting
             delete_button = Button(self.main, text='Delete Setting', width=15, command=self.delete_setting)
             delete_button.pack(in_=button_frame, side=TOP, padx=10, pady=5)
@@ -772,7 +777,7 @@ class AccSettingsGUI:
         # Fill Textboxes with settings
         self.fill_gui()
 
-        if not self.config:
+        if not self.class_obj:
             # Show GUI Dialog
             self.main.mainloop()
 

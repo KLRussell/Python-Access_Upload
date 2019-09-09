@@ -158,6 +158,7 @@ class AccdbHandle:
 
     def get_config(self, table):
         self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+        self.config = None
 
         if table and self.configs:
             for config in self.configs:
@@ -235,14 +236,10 @@ class AccdbHandle:
             self.config_gui(table, header_text)
 
         if self.config and not self.validate_sql_table(self.config[3]):
-            self.config[3] = None
-            self.switch_config()
             header_text = 'Welcome to STC Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
             self.config_gui(table, header_text, False)
 
         if self.config and not self.validate_cols(self.config[2], self.accdb_cols):
-            self.config[2] = None
-            self.switch_config()
             header_text = 'Welcome to STC Upload!\nOne or more column does not exist.\nPlease redo config for access table columns:'
             self.config_gui(table, header_text, False)
 
@@ -250,13 +247,10 @@ class AccdbHandle:
             self.get_sql_cols(self.config[3])
 
             if not self.validate_cols(self.config[4], self.sql_cols):
-                self.config[4] = None
-                self.switch_config()
                 header_text = 'Welcome to STC Upload!\nOne or more column does not exist.\nPlease redo config for sql table columns:'
                 self.config_gui(table, header_text, False)
 
             if not self.validate_cols(['Source_File'], self.sql_cols):
-                self.switch_config()
                 header_text = 'Welcome to STC Upload!\nSQL Table does not have a Source_File column:'
                 self.config_gui(table, header_text, False)
 
@@ -283,13 +277,15 @@ class AccdbHandle:
         '''.format(self.config[3], self.batch)).empty
 
     def config_gui(self, table, header_text, insert=True):
-        obj = AccSettingsGUI()
-
         if insert:
+            obj = AccSettingsGUI()
             obj.build_gui(header_text, table, self.accdb_cols)
             self.get_config(table)
         else:
             old_config = self.config
+            self.switch_config()
+            obj = AccSettingsGUI(config=old_config)
+
             obj.build_gui(header_text)
             self.get_config(table)
 
@@ -379,7 +375,7 @@ def email_results(batch, upload_results):
     body.append('The following items have been successfully uploaded to SQL Server:')
 
     for result in upload_results:
-        body.append('\t{3} {0} -> {1} ({2} records)'.format(result[0], result[1], result[2], chr(149)))
+        body.append('\t\u2022 {0} -> {1} ({2} records)'.format(result[0], result[1], result[2]))
 
     body.append("Yours Truly,")
     body.append("The CDA's")

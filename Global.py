@@ -399,7 +399,7 @@ class SQLHandle:
             ct = self.cursor.tables
 
             for row in ct():
-                if 'msys' not in row.table_name.lower():
+                if 'msys' not in row.table_name.lower() and row.table_type == "TABLE":
                     mylist.append(row.table_name)
 
             return mylist
