@@ -354,6 +354,7 @@ class AccdbHandle:
 def email_results(batch, upload_results):
     message = MIMEMultipart()
     body = []
+    body2 = []
 
     email_server = global_objs['Settings'].grab_item('Email_Server')
     email_user = global_objs['Settings'].grab_item('Email_User')
@@ -375,8 +376,9 @@ def email_results(batch, upload_results):
     body.append('The following items have been successfully uploaded to SQL Server:')
 
     for result in upload_results:
-        body.append('\t\u2022 {0} -> {1} ({2} records)'.format(result[0], result[1], result[2]))
+        body2.append('\t\u2022 {0} -> {1} ({2} records)'.format(result[0], result[1], result[2]))
 
+    body.append('\n'.join(body2))
     body.append("Yours Truly,")
     body.append("The CDA's")
 
