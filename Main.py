@@ -130,9 +130,6 @@ class AccdbHandle:
         self.asql = SQLHandle(logobj=global_objs['Event_Log'], settingsobj=global_objs['Settings'])
         self.asql.connect(conn_type='alch')
 
-        if not self.email_port:
-            self.email_port = 587
-
     @staticmethod
     def get_accdb_tables():
         myresults = global_objs['SQL'].get_accdb_tables()
@@ -238,6 +235,7 @@ class AccdbHandle:
 
         if self.config and not self.validate_sql_table(self.config[3]):
             self.config[3] = None
+            self.switch_config()
             header_text = 'Welcome to STC Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
             self.config_gui(table, header_text, False)
 
@@ -356,6 +354,8 @@ class AccdbHandle:
 
 def email_results(batch, upload_results):
     message = MIMEMultipart()
+    body = []
+
     email_server = global_objs['Settings'].grab_item('Email_Server')
     email_user = global_objs['Settings'].grab_item('Email_User')
     email_pass = global_objs['Settings'].grab_item('Email_Pass')
@@ -364,17 +364,21 @@ def email_results(batch, upload_results):
     email_to = global_objs['Local_Settings'].grab_item('Email_To')
     email_cc = global_objs['Local_Settings'].grab_item('Email_CC')
 
+    if not email_port:
+        email_port = 587
+
     message['From'] = email_from.decrypt_text()
     message['To'] = email_to.decrypt_text()
     message['Cc'] = email_cc.decrypt_text()
     message['Date'] = formatdate(localtime=True)
 
-    body = 'Happy Friday DART,\n\nThe following items have been successfully uploaded to SQL Server:\n\n'
+    body.append('Happy Friday DART,')
+    body.append('The following items have been successfully uploaded to SQL Server:')
 
     for result in upload_results:
-        body += '\t* {0} -> {1} ({2} records)'.format(result[0], result[1], result[2])
+        body.append('\t* {0} -> {1} ({2} records)'.format(result[0], result[1], result[2]))
 
-    body += "\n\nYours Truly\n\nThe CDA's"
+    body.append("Yours Truly\n\nThe CDA's")
 
     try:
         server = smtplib.SMTP(str(email_server.decrypt_text()),
@@ -385,7 +389,7 @@ def email_results(batch, upload_results):
             server.ehlo()
             server.login(email_user.decrypt_text(), email_pass.decrypt_text())
             message['Subject'] = 'STC Updated Records %s' % batch
-            message.attach(MIMEText(body))
+            message.attach(MIMEText('\n\n'.join(body)))
             server.sendmail(email_from.decrypt_text(), email_to.decrypt_text(), str(message))
         except:
             global_objs['Event_Log'].write_log('Failed to log into email server to send e-mail', 'error')
