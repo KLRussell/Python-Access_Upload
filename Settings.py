@@ -1097,7 +1097,7 @@ class AccSettingsGUI:
 
     # Function to save settings when the Save Settings button is pressed
     def save_settings(self):
-        if self.acc_table:
+        if self.acc_table or self.class_obj:
             if self.atcs_list_box.size() < 1:
                 messagebox.showerror('List Empty Error!',
                                      'Access Table Select Column Listbox is empty. Please migrate columns',
@@ -1227,12 +1227,13 @@ class ChangeAccSettings:
 
         self.load_gui_fields()
 
-    def load_gui_fields(self):
+    def load_gui_fields(self, set_id=0):
         if self.configs:
             for config in self.configs:
                 self.list_box.insert('end', config[0])
 
-            self.list_box.select_set(0)
+            if set_id > -1:
+                self.list_box.select_set(set_id)
         else:
             self.list_box.configure(state=DISABLED)
             self.save_button.configure(state=DISABLED)
@@ -1261,11 +1262,18 @@ class ChangeAccSettings:
             if self.change_setting_obj:
                 self.change_setting_obj.cancel()
 
+            self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+
             for config in self.configs:
                 if config[0] == self.list_box.get(self.list_box.curselection()):
                     self.change_setting_obj = AccSettingsGUI(self, self.main, config)
                     self.change_setting_obj.build_gui()
                     break
+
+            if self.list_box.size() > 0:
+                self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+                self.list_box.delete(0, self.list_box.size() - 1)
+                self.load_gui_fields(-1)
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
