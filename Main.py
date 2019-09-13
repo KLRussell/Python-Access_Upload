@@ -452,7 +452,11 @@ def process_updates(files):
             paths_to_remove.append(os.path.dirname(os.path.dirname(file)))
 
     for path in paths_to_remove:
-        shutil.rmtree(path)
+        try:
+            shutil.rmtree(path)
+        except:
+            global_objs['Event_Log'].write_log('Failed to cleanup [{0}]'.format(path), 'error')
+            pass
 
     if upload_results:
         email_results(batch, upload_results)
