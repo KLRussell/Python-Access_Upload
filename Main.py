@@ -376,7 +376,7 @@ def email_results(batch, upload_results):
     body.append('The following items have been successfully uploaded to SQL Server:')
 
     for result in upload_results:
-        body2.append('\t\u2022 {0} -> {1} ({2} records)'.format(result[0], result[1], result[2]))
+        body2.append('\t\u2022  {0} => {1} ({2} records)'.format(result[0], result[1], result[2]))
 
     body.append('\n'.join(body2))
     body.append("Yours Truly,")
