@@ -451,6 +451,8 @@ def process_updates(files):
         if not os.path.dirname(os.path.dirname(file)) in paths_to_remove:
             paths_to_remove.append(os.path.dirname(os.path.dirname(file)))
 
+    global_objs['Event_Log'].write_log('Cleaning Process directory')
+
     for path in paths_to_remove:
         try:
             shutil.rmtree(path)
@@ -459,6 +461,7 @@ def process_updates(files):
             pass
 
     if upload_results:
+        global_objs['Event_Log'].write_log('Sending e-mail to distros')
         email_results(batch, upload_results)
 
 
