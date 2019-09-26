@@ -77,9 +77,7 @@ class STCFTP:
             self.ftp.cwd('/To Granite')
 
             entries = list(self.ftp.mlsd())
-            entries.sort(
-                key=lambda entry: "" if entry[0].startswith('SDN') or entry[1]['type'] == 'dir' else entry[1]['modify']
-                , reverse=True)
+            entries.sort(key=lambda entry: "" if entry[0].startswith('SDN') or entry[1]['type'] == 'dir' or not (entry[0].endswith('.zip') or entry[0].endswith('.rar') or entry[0].endswith('.7z') or entry[0].endswith('.accdb') or entry[0].endswith('.mdb')) else entry[1]['modify'], reverse=True)
             date = entries[0][1]['modify'][0:8]
 
             dest = os.path.join(os.path.join(ProcessDir, date), 'Unzipped')
