@@ -82,7 +82,13 @@ class STCFTP:
 
             dest = os.path.join(os.path.join(ProcessDir, date), 'Unzipped')
 
-            if not os.path.exists(os.path.join(ProcessDir, date)):
+            if os.path.exists(os.path.join(ProcessDir, date)):
+                try:
+                    shutil.rmtree(os.path.join(ProcessDir, date))
+                    os.makedirs(os.path.join(ProcessDir, date))
+                except:
+                    return
+            else:
                 os.makedirs(os.path.join(ProcessDir, date))
 
             if not os.path.exists(dest):
@@ -557,5 +563,3 @@ if __name__ == '__main__':
             global_objs['Event_Log'].write_log('Found no files to process', 'warning')
     else:
         global_objs['Event_Log'].write_log('Settings Mode was established. Need to re-run script', 'warning')
-
-    os.system('pause')
