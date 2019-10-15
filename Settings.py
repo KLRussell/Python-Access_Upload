@@ -503,7 +503,8 @@ class SettingsGUI:
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
-        self.main.destroy()
+        if self.main:
+            self.main.destroy()
 
 
 class AccSettingsGUI:
@@ -1167,7 +1168,8 @@ class AccSettingsGUI:
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
-        self.main.destroy()
+        if self.main:
+            self.main.destroy()
 
 
 class ChangeAccSettings:
@@ -1277,7 +1279,8 @@ class ChangeAccSettings:
 
     # Function to destroy GUI when Cancel button is pressed
     def cancel(self):
-        self.main.destroy()
+        if self.main:
+            self.main.destroy()
 
 
 # Main loop routine to create GUI Settings

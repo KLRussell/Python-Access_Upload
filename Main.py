@@ -471,7 +471,7 @@ def process_updates(files):
         email_results(batch, upload_results)
 
 
-def check_settings():
+def check_settings(stop_gui=False):
     header_text = None
     my_return = False
     obj = SettingsGUI()
@@ -498,27 +498,32 @@ def check_settings():
             if not obj.sql_connect():
                 header_text = 'Welcome to STC Upload!\nNetwork settings are invalid.\nPlease fix the network settings below:'
             else:
+                ftp_server = global_objs['Local_Settings'].grab_item('FTP Host')
+                ftp_user = global_objs['Local_Settings'].grab_item('FTP User')
+                ftp_pass = global_objs['Local_Settings'].grab_item('FTP Password')
+                server = global_objs['Settings'].grab_item('Email_Server')
+                user_name = global_objs['Settings'].grab_item('Email_User')
+                user_pass = global_objs['Settings'].grab_item('Email_Pass')
+
                 if global_objs['Settings'].grab_item('Email_Port'):
                     port = global_objs['Settings'].grab_item('Email_Port').decrypt_text()
                 else:
                     port = 587
 
                 try:
-                    server = smtplib.SMTP(str(global_objs['Settings'].grab_item('Email_Server').decrypt_text()),
-                                          int(port))
+                    server = smtplib.SMTP(str(server.decrypt_text()), int(port))
+
                     try:
                         server.ehlo()
                         server.starttls()
                         server.ehlo()
-                        server.login(global_objs['Settings'].grab_item('Email_User').decrypt_text(),
-                                     global_objs['Settings'].grab_item('Email_Pass').decrypt_text())
+                        server.login(user_name.decrypt_text(), user_pass.decrypt_text())
 
                         try:
-                            ftp = ftplib.FTP(global_objs['Local_Settings'].grab_item('FTP Host').decrypt_text())
+                            ftp = ftplib.FTP(ftp_server.decrypt_text())
 
                             try:
-                                ftp.login(global_objs['Local_Settings'].grab_item('FTP User').decrypt_text(),
-                                          global_objs['Local_Settings'].grab_item('FTP Password').decrypt_text())
+                                ftp.login(ftp_user.decrypt_text(), ftp_pass.decrypt_text())
                                 my_return = True
                             except:
                                 header_text = 'Welcome to STC Upload!\nFTP User and/or Pass are invalid.\nPlease fix below:'
@@ -535,11 +540,14 @@ def check_settings():
         finally:
             obj.sql_close()
 
-    if header_text:
+    if header_text and not stop_gui:
         obj.build_gui(header_text)
 
     obj.cancel()
     del obj
+
+    if header_text and not stop_gui:
+        my_return = check_settings(True)
 
     return my_return
 
