@@ -6,8 +6,8 @@
 
 from Global import grabobjs
 from Global import SQLHandle
-from Settings import SettingsGUI
-from Settings import AccSettingsGUI
+from STC_Upload_Settings import SettingsGUI
+from STC_Upload_Settings import AccSettingsGUI
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
