@@ -28,11 +28,13 @@ def grabobjs(scriptdir, filename=None):
 
         if len(list(pl.Path(scriptdir).glob('Script_Settings.*'))) > 0:
             myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
+            myobjs['Local_Settings'].read_shelf()
             mydir = myobjs['Local_Settings'].grab_item('General_Settings_Path')
 
             if mydir and os.path.exists(mydir):
                 myobjs['Settings'] = ShelfHandle(os.path.join(myobjs['Local_Settings'].grab_item(
                     'General_Settings_Path'), 'General_Settings'))
+                myobjs['Settings'].read_shelf()
             else:
                 while not myinput:
                     print("Please input a directory path where to setup general settings at:")
@@ -51,6 +53,7 @@ def grabobjs(scriptdir, filename=None):
         if myinput:
             myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
             myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
+            myobjs['Local_Settings'].write_shelf()
             myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
 
         myobjs['Event_Log'] = LogHandle(scriptdir, filename)
