@@ -157,6 +157,7 @@ class ShelfHandle:
     def read_shelf(self):
         self.shelf_data.clear()
         self.rem_keys.clear()
+        self.add_keys.clear()
         shelf = shelve_lock.open(self.file)
 
         if len(shelf) > 0:
@@ -184,6 +185,7 @@ class ShelfHandle:
                 self.shelf_data[k] = v
 
         self.rem_keys.clear()
+        self.add_keys.clear()
         shelf.close()
 
     def empty_shelf(self):
