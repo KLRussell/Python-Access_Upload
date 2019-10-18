@@ -85,6 +85,7 @@ class SettingsGUI:
 
         if val:
             global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
+            global_objs[setting_list].write_shelf()
 
     # Function to connect to SQL connection for this class
     def sql_connect(self):
@@ -580,6 +581,7 @@ class AccSettingsGUI:
 
         if val:
             global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
+            global_objs[setting_list].write_shelf()
 
     # Function to validate whether a SQL table exists in SQL server
     def grab_tables(self):
