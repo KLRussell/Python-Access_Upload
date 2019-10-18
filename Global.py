@@ -12,7 +12,6 @@ from shelve_lock import dumb
 from shelve_lock import gnu
 from shelve_lock import ndbm_new
 
-
 import traceback
 import xml.etree.ElementTree as ET
 import pathlib as pl
