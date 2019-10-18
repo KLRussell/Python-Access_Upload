@@ -211,7 +211,7 @@ class ShelfHandle:
             if key in self.rem_keys:
                 self.rem_keys.remove(key)
 
-            if key in self.shelf_data.keys():
+            if not key in self.add_keys:
                 self.add_keys.append(key)
 
             if encrypt:
