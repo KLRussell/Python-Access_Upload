@@ -6,11 +6,8 @@ from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-# Need these to be imported when compiling EXE
-from shelve_lock import dbm_new
-from shelve_lock import dumb
-from shelve_lock import gnu
-from shelve_lock import ndbm_new
+# Include this immport of dumb from dbm_lock for pyinstaller's Exe compiler
+from dbm_lock import dumb
 
 import traceback
 import xml.etree.ElementTree as ET
@@ -61,6 +58,7 @@ def grabobjs(scriptdir, filename=None):
             myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
             myobjs['Local_Settings'].write_shelf()
             myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
+            myobjs['Settings'].read_shelf()
 
         myobjs['Event_Log'] = LogHandle(scriptdir, filename)
         myobjs['SQL'] = SQLHandle(logobj=myobjs['Event_Log'], settingsobj=myobjs['Settings'])
@@ -219,7 +217,7 @@ class ShelfHandle:
             if key in self.rem_keys:
                 self.rem_keys.remove(key)
 
-            if not key in self.add_keys:
+            if key not in self.add_keys:
                 self.add_keys.append(key)
 
             if encrypt:
