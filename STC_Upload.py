@@ -5,12 +5,11 @@
 # https://www.7-zip.org/download.html
 
 from Global import grabobjs
-from Global import SQLHandle
 from STC_Upload_Settings import SettingsGUI
-from STC_Upload_Settings import AccSettingsGUI
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formatdate
+from STC_Upload_Settings import AccdbHandle
 
 import datetime
 import subprocess
@@ -19,7 +18,6 @@ import traceback
 import ftplib
 import os
 import pathlib as pl
-import pandas as pd
 import smtplib
 import zipfile
 import shutil
@@ -42,14 +40,15 @@ class STCFTP:
     ftp = None
 
     def __init__(self):
-        self.host = global_objs['Local_Settings'].grab_item('FTP Host')
-        self.username = global_objs['Local_Settings'].grab_item('FTP User')
-        self.password = global_objs['Local_Settings'].grab_item('FTP Password')
+        self.log = global_objs['Event_Log']
+        self.settings = global_objs['Local_Settings']
+        self.host = self.settings.grab_item('FTP Host')
+        self.username = self.settings.grab_item('FTP User')
+        self.password = self.settings.grab_item('FTP Password')
 
     def connect(self):
         if self.host and self.username and self.password:
-            global_objs['Event_Log'].write_log('Opening socket to FTP server (%s) to find updates' %
-                                               self.host.decrypt_text())
+            self.log.write_log('Opening socket to FTP server (%s) to find updates' % self.host.decrypt_text())
 
             try:
                 self.ftp = ftplib.FTP(self.host.decrypt_text())
@@ -57,11 +56,11 @@ class STCFTP:
                 try:
                     self.ftp.login(self.username.decrypt_text(), self.password.decrypt_text())
                 except:
-                    global_objs['Event_Log'].write_log(traceback.format_exc(), 'critical')
+                    self.log.write_log(traceback.format_exc(), 'critical')
                     self.ftp.quit()
                     self.ftp = None
             except:
-                global_objs['Event_Log'].write_log(traceback.format_exc(), 'critical')
+                self.log.write_log(traceback.format_exc(), 'critical')
                 self.ftp = None
                 return
         else:
@@ -73,22 +72,18 @@ class STCFTP:
 
     def grab_stc_zips(self):
         if self.ftp:
-            global_objs['Event_Log'].write_log('Grabbing updates from FTP server and unzipping files')
+            self.log.write_log('Grabbing updates from FTP server and unzipping files')
             self.ftp.cwd('/To Granite')
 
             entries = list(self.ftp.mlsd())
-            entries.sort(key=lambda entry: "" if entry[0].startswith('SDN') or entry[1]['type'] == 'dir' or not (entry[0].endswith('.zip') or entry[0].endswith('.rar') or entry[0].endswith('.7z') or entry[0].endswith('.accdb') or entry[0].endswith('.mdb')) else entry[1]['modify'], reverse=True)
+            entries.sort(key=lambda entry: "" if entry[0].startswith('SDN') or entry[1]['type'] == 'dir' or not (
+                    entry[0].endswith('.zip') or entry[0].endswith('.rar') or entry[0].endswith('.7z')
+                    or entry[0].endswith('.accdb') or entry[0].endswith('.mdb')) else entry[1]['modify'], reverse=True)
             date = entries[0][1]['modify'][0:8]
 
             dest = os.path.join(os.path.join(ProcessDir, date), 'Unzipped')
 
-            if os.path.exists(os.path.join(ProcessDir, date)):
-                try:
-                    shutil.rmtree(os.path.join(ProcessDir, date))
-                    os.makedirs(os.path.join(ProcessDir, date))
-                except:
-                    return
-            else:
+            if not os.path.exists(os.path.join(ProcessDir, date)):
                 os.makedirs(os.path.join(ProcessDir, date))
 
             if not os.path.exists(dest):
@@ -117,244 +112,11 @@ class STCFTP:
                             else:
                                 os.rename(path, os.path.join(dest, item[0]))
                         except:
-                            global_objs['Event_Log'].write_log(traceback.format_exc(), 'critical')
+                            self.log.write_log(traceback.format_exc(), 'critical')
                             if os.path.exists(path):
                                 os.unlink(path)
                 else:
                     break
-
-
-class AccdbHandle:
-    configs = None
-    config = None
-    accdb_cols = None
-    sql_cols = None
-    upload_df = pd.DataFrame()
-
-    def __init__(self, file, batch):
-        self.file = file
-        self.batch = batch
-        self.asql = SQLHandle(logobj=global_objs['Event_Log'], settingsobj=global_objs['Settings'])
-        self.asql.connect(conn_type='alch')
-
-    @staticmethod
-    def get_accdb_tables():
-        myresults = global_objs['SQL'].get_accdb_tables()
-
-        if len(myresults) > 0:
-            return myresults
-
-    @staticmethod
-    def validate_cols(cols, true_cols):
-        if cols:
-            for col in cols:
-                found = False
-
-                for true_col in true_cols:
-                    if col.lower() == true_col.lower():
-                        found = True
-                        break
-
-                if not found:
-                    return False
-
-            return True
-        else:
-            return False
-
-    def get_config(self, table):
-        self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
-        self.config = None
-
-        if table and self.configs:
-            for config in self.configs:
-                if config[0] == table:
-                    self.config = config
-                    break
-
-    def switch_config(self):
-        if self.configs and self.config:
-            for config in self.configs:
-                if config == self.config:
-                    self.configs.remove(config)
-                    break
-
-            self.configs.append(self.config)
-            global_objs['Local_Settings'].del_item('Accdb_Configs')
-            global_objs['Local_Settings'].add_item('Accdb_Configs', self.configs)
-
-    def get_accdb_cols(self, table):
-        myresults = global_objs['SQL'].query('''
-            SELECT TOP 1 *
-            FROM [{0}]'''.format(table))
-
-        if len(myresults) < 1:
-            raise Exception('File {0} has no valid columns in table {1}'.format(
-                os.path.basename(self.file), table))
-
-        self.accdb_cols = myresults.columns.tolist()
-
-    def get_sql_cols(self, table):
-        myresults = self.asql.query('''
-            SELECT
-                Column_Name
-
-            FROM INFORMATION_SCHEMA.COLUMNS
-
-            WHERE
-                TABLE_SCHEMA = '{0}'
-                    AND
-                TABLE_NAME = '{1}'
-        '''.format(table.split('.')[0], table.split('.')[1]))
-
-        if len(myresults) < 1:
-            raise Exception('SQL Table {} has no valid tables in the access database file'.format(self.to_table))
-
-        self.sql_cols = myresults['Column_Name'].tolist()
-
-    def validate_sql_table(self, table):
-        if table:
-            splittable = table.split('.')
-
-            if len(splittable) == 2:
-                results = self.asql.query('''
-                    select 1
-                    from information_schema.tables
-                    where
-                        table_schema = '{0}'
-                            and
-                        table_name = '{1}'
-                '''.format(splittable[0], splittable[1]))
-
-                if results.empty:
-                    return False
-                else:
-                    return True
-        else:
-            return False
-
-    def validate(self, table):
-        self.get_accdb_cols(table)
-        self.get_config(table)
-
-        if not self.config:
-            header_text = 'Welcome to STC Upload!\nThere is no configuration for table.\nPlease add configuration setting below:'
-            self.config_gui(table, header_text)
-
-        if self.config and not self.validate_sql_table(self.config[3]):
-            header_text = 'Welcome to STC Upload!\nSQL Server TBL does not exist.\nPlease fix configuration in Upload Settings:'
-            self.config_gui(table, header_text, False)
-
-        if self.config and not self.validate_cols(self.config[2], self.accdb_cols):
-            header_text = 'Welcome to STC Upload!\nOne or more column does not exist.\nPlease redo config for access table columns:'
-            self.config_gui(table, header_text, False)
-
-        if self.config:
-            self.get_sql_cols(self.config[3])
-
-            if not self.validate_cols(self.config[4], self.sql_cols):
-                header_text = 'Welcome to STC Upload!\nOne or more column does not exist.\nPlease redo config for sql table columns:'
-                self.config_gui(table, header_text, False)
-
-            if not self.validate_cols(['Source_File'], self.sql_cols):
-                header_text = 'Welcome to STC Upload!\nSQL Table does not have a Source_File column:'
-                self.config_gui(table, header_text, False)
-
-                if not self.validate_cols(['Source_File'], self.sql_cols):
-                    global_objs['Event_Log'].write_log('Selected SQL table does not have Source_File column. Closing',
-                                                       'error')
-                    self.config = False
-
-        if self.config:
-            if self.updates_not_exists():
-                return True
-            else:
-                global_objs['Event_Log'].write_log('Updates already exist for SQL table %s' % self.config[3], 'warning')
-                return False
-        else:
-            return False
-
-    def updates_not_exists(self):
-        return self.asql.query('''
-            SELECT TOP 1 1
-            FROM {0}
-            WHERE
-                Source_File = 'Updated Records {1}'
-        '''.format(self.config[3], self.batch)).empty
-
-    def config_gui(self, table, header_text, insert=True):
-        if insert:
-            obj = AccSettingsGUI()
-            obj.build_gui(header_text, table, self.accdb_cols)
-            self.get_config(table)
-        else:
-            old_config = self.config
-            self.switch_config()
-            obj = AccSettingsGUI(config=old_config)
-
-            obj.build_gui(header_text)
-            self.get_config(table)
-
-            if old_config == self.config:
-                self.config = None
-
-    def process(self, table):
-        global_objs['Event_Log'].write_log('Reading data from accdb table [{0}]'.format(table))
-
-        self.upload_df = global_objs['SQL'].query('''
-            SELECT
-                [{0}],
-                'Updated Records {2}' As Source_File
-
-            FROM [{1}]
-        '''.format('], ['.join(self.config[2]), table, self.batch))
-
-        if not self.upload_df.empty:
-            self.upload_df.columns = self.config[4] + ('Source_File',)
-
-            if self.config[5]:
-                global_objs['Event_Log'].write_log('Truncating table [{0}]'.format(self.config[3]))
-                self.asql.execute('truncate table {0}'.format(self.config[3]))
-
-            global_objs['Event_Log'].write_log('Uploading data to sql table {0}'.format(self.config[3]))
-            self.asql.upload(self.upload_df, self.config[3], index=False, index_label=None)
-            global_objs['Event_Log'].write_log('Data successfully uploaded from table [{0}] to sql table {1}'
-                                               .format(table, self.config[3]))
-            return True
-        else:
-            global_objs['Event_Log'].write_log('Failed to grab data from access table [{0}]. No update made'
-                                               .format(table), 'error')
-            return False
-
-    def apply_features(self, table):
-        global_objs['Event_Log'].write_log('Appending features to %s if they exist' % self.config[3])
-
-        if self.validate_cols(['Edit_DT'], self.sql_cols):
-            self.asql.execute('''
-                UPDATE {0}
-                SET
-                    Edit_DT = GETDATE()
-            '''.format(self.config[3]))
-        elif self.validate_cols(['Edit_Date'], self.sql_cols):
-            self.asql.execute('''
-                UPDATE {0}
-                SET
-                    Edit_Date = GETDATE()
-            '''.format(self.config[3]))
-
-        path = os.path.join(SQLDir, table)
-
-        if os.path.exists(path):
-            for file in list(pl.Path(path).glob('*.sql')):
-                with open(str(file), 'r') as f:
-                    self.asql.execute(f.read())
-                    f.close()
-
-    def close_asql(self):
-        self.asql.close()
-
-    def get_success_stats(self, table):
-        return [table, self.config[3], len(self.upload_df)]
 
 
 def email_results(batch, upload_results):
@@ -418,30 +180,41 @@ def check_for_updates():
     return file_paths
 
 
+def rem_proc_elements():
+    global_objs['Event_Log'].write_log('Cleaning Process directory')
+
+    for filename in os.listdir(ProcessDir):
+        file_path = os.path.join(ProcessDir, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            global_objs['Event_Log'].write_log('Failed to delete %s. Reason: %s' % (file_path, e), 'warning')
+            pass
+
+
 def process_updates(files):
-    paths_to_remove = []
-    upload_results = []
     batch = None
+    upload_results = []
 
     for file in files:
         batch = os.path.basename(os.path.dirname(os.path.dirname(file)))
         global_objs['Event_Log'].write_log('Processing file [{0}]'.format(os.path.basename(file)))
         myobj = AccdbHandle(file, batch)
 
-        global_objs['SQL'].change_config(accdb_file=file)
-        global_objs['SQL'].connect('accdb')
-
         try:
             for table in myobj.get_accdb_tables():
-                global_objs['Event_Log'].write_log('Validating table [{0}]'.format(table))
+                if table[0] == 'TABLE':
+                    global_objs['Event_Log'].write_log('Validating table [{0}]'.format(table[1][2]))
 
-                if myobj.validate(table) and myobj.process(table):
-                    myobj.apply_features(table)
-                    upload_results.append(myobj.get_success_stats(table))
-
+                    if myobj.validate(table[1][2]) and myobj.process(table[1][2]):
+                        myobj.apply_features(table[1][2])
+                        upload_results.append(myobj.get_success_stats(table[1][2]))
         finally:
-            myobj.close_asql()
-            global_objs['SQL'].close()
+            myobj.close_conn()
+            del myobj
 
         batch_dir = os.path.join(ProcessedDir, batch)
         my_path = os.path.join(batch_dir, os.path.basename(file))
@@ -454,26 +227,23 @@ def process_updates(files):
         else:
             os.rename(file, my_path)
 
-        if not os.path.dirname(os.path.dirname(file)) in paths_to_remove:
-            paths_to_remove.append(os.path.dirname(os.path.dirname(file)))
-
-    global_objs['Event_Log'].write_log('Cleaning Process directory')
-
-    for path in paths_to_remove:
-        try:
-            shutil.rmtree(path)
-        except:
-            global_objs['Event_Log'].write_log('Failed to cleanup [{0}]'.format(path), 'error')
-            pass
-
-    if upload_results:
-        global_objs['Event_Log'].write_log('Sending e-mail to distros')
+    if len(upload_results) > 0:
         email_results(batch, upload_results)
 
 
 def check_settings(stop_gui=False):
+    server = global_objs['Settings'].grab_item('Server')
+    database = global_objs['Settings'].grab_item('Database')
+    ftp_host = global_objs['Local_Settings'].grab_item('FTP Host')
+    ftp_user = global_objs['Local_Settings'].grab_item('FTP User')
+    ftp_pass = global_objs['Local_Settings'].grab_item('FTP Password')
+    email_server = global_objs['Settings'].grab_item('Email_Server')
+    email_user = global_objs['Settings'].grab_item('Email_User')
+    email_pass = global_objs['Settings'].grab_item('Email_Pass')
+    email_to = global_objs['Local_Settings'].grab_item('Email_To')
+    email_from = global_objs['Local_Settings'].grab_item('Email_From')
+    email_port = global_objs['Settings'].grab_item('Email_Port')
     header_text = None
-    my_return = False
     obj = SettingsGUI()
 
     if not os.path.exists(ProcessDir):
@@ -482,63 +252,51 @@ def check_settings(stop_gui=False):
     if not os.path.exists(ProcessedDir):
         os.makedirs(ProcessedDir)
 
-    if not global_objs['Settings'].grab_item('Server') \
-            or not global_objs['Settings'].grab_item('Database') \
-            or not global_objs['Local_Settings'].grab_item('FTP Host') \
-            or not global_objs['Local_Settings'].grab_item('FTP User') \
-            or not global_objs['Local_Settings'].grab_item('FTP Password') \
-            or not global_objs['Settings'].grab_item('Email_Server') \
-            or not global_objs['Settings'].grab_item('Email_User') \
-            or not global_objs['Settings'].grab_item('Email_Pass') \
-            or not global_objs['Local_Settings'].grab_item('Email_To') \
-            or not global_objs['Local_Settings'].grab_item('Email_From'):
-        header_text = 'Welcome to STC Upload!\nSettings haven''t been established.\nPlease fill out all empty fields below:'
+    if not server or not database or not ftp_host or not ftp_user or not ftp_pass or not email_server\
+            or not email_user or not email_pass or not email_to or not email_from:
+        header_text = ['Welcome to STC Upload!', 'Settings haven''t been established.',
+                       'Please fill out all empty fields below:']
     else:
         try:
-            if not obj.sql_connect():
-                header_text = 'Welcome to STC Upload!\nNetwork settings are invalid.\nPlease fix the network settings below:'
+            if not obj.test_sql_conn():
+                header_text = ['Welcome to STC Upload!', 'Network settings are invalid.',
+                               'Please fix the network settings below:']
             else:
-                ftp_server = global_objs['Local_Settings'].grab_item('FTP Host')
-                ftp_user = global_objs['Local_Settings'].grab_item('FTP User')
-                ftp_pass = global_objs['Local_Settings'].grab_item('FTP Password')
-                server = global_objs['Settings'].grab_item('Email_Server')
-                user_name = global_objs['Settings'].grab_item('Email_User')
-                user_pass = global_objs['Settings'].grab_item('Email_Pass')
-
-                if global_objs['Settings'].grab_item('Email_Port'):
-                    port = global_objs['Settings'].grab_item('Email_Port').decrypt_text()
+                if email_port:
+                    port = email_port.decrypt_text()
                 else:
                     port = 587
 
                 try:
-                    server = smtplib.SMTP(str(server.decrypt_text()), int(port))
+                    server = smtplib.SMTP(str(email_server.decrypt_text()), int(port))
 
                     try:
                         server.ehlo()
                         server.starttls()
                         server.ehlo()
-                        server.login(user_name.decrypt_text(), user_pass.decrypt_text())
+                        server.login(email_user.decrypt_text(), email_pass.decrypt_text())
 
                         try:
-                            ftp = ftplib.FTP(ftp_server.decrypt_text())
+                            ftp = ftplib.FTP(ftp_host.decrypt_text())
 
                             try:
                                 ftp.login(ftp_user.decrypt_text(), ftp_pass.decrypt_text())
-                                my_return = True
                             except:
-                                header_text = 'Welcome to STC Upload!\nFTP User and/or Pass are invalid.\nPlease fix below:'
+                                header_text = ['Welcome to STC Upload!', 'FTP User and/or Pass are invalid.',
+                                               'Please fix below:']
                             finally:
                                 ftp.quit()
                         except:
-                            header_text = 'Welcome to STC Upload!\nFTP server does not exist.\nPlease fix below:'
+                            header_text = ['Welcome to STC Upload!', 'FTP server does not exist.', 'Please fix below:']
                     except:
-                        header_text = 'Welcome to STC Upload!\nEmail User and/or Pass are invalid.\nPlease fix below:'
+                        header_text = ['Welcome to STC Upload!', 'Email User and/or Pass are invalid.',
+                                       'Please fix below:']
                     finally:
                         server.close()
                 except:
-                    header_text = 'Welcome to STC Upload!\nEmail server does not exist.\nPlease fix below:'
-        finally:
-            obj.sql_close()
+                    header_text = ['Welcome to STC Upload!', 'Email server does not exist.', 'Please fix below:']
+        except:
+            pass
 
     if header_text and not stop_gui:
         obj.build_gui(header_text)
@@ -547,13 +305,14 @@ def check_settings(stop_gui=False):
     del obj
 
     if header_text and not stop_gui:
-        my_return = check_settings(True)
-
-    return my_return
+        return check_settings(True)
+    elif not header_text:
+        return True
 
 
 if __name__ == '__main__':
     if check_settings():
+        rem_proc_elements()
         mobj = STCFTP()
 
         try:
@@ -565,9 +324,10 @@ if __name__ == '__main__':
         has_updates = check_for_updates()
 
         if has_updates:
-            global_objs['Event_Log'].write_log('Found {} files to process'.format(len(has_updates)))
+            global_objs['Event_Log'].write_log('Found {0} files to process'.format(len(has_updates)))
             process_updates(has_updates)
+            rem_proc_elements()
         else:
             global_objs['Event_Log'].write_log('Found no files to process', 'warning')
     else:
-        global_objs['Event_Log'].write_log('Settings Mode was established. Need to re-run script', 'warning')
+        global_objs['Event_Log'].write_log('Settings was not established. Exiting program', 'fatal')

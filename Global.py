@@ -5,10 +5,13 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from sqlalchemy.exc import SQLAlchemyError
+from contextlib import closing
+from tkinter import filedialog
+from tkinter import messagebox
+from tkinter import *
 
-# Include this immport of dumb from dbm_lock for pyinstaller's Exe compiler
-from dbm_lock import dumb
-
+import threading
 import traceback
 import xml.etree.ElementTree as ET
 import pathlib as pl
@@ -22,51 +25,146 @@ import logging
 import base64
 import random
 import string
+import shutil
+
+# Include this immport of dumb from dbm_lock for pyinstaller's Exe compiler
+from dbm_lock import dumb
 
 
 def grabobjs(scriptdir, filename=None):
     if scriptdir and os.path.exists(scriptdir):
         myobjs = dict()
-        myinput = None
+        myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
 
         if len(list(pl.Path(scriptdir).glob('Script_Settings.*'))) > 0:
-            myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
+            myobjs['Local_Settings'].read_shelf()
+            mydir = myobjs['Local_Settings'].grab_item('General_Settings_Path')
+        else:
+            mydir = None
+
+        if not mydir or not os.path.exists(mydir):
+            obj = GeneralSettingsGUI(scriptdir)
+            obj.build_gui()
             myobjs['Local_Settings'].read_shelf()
             mydir = myobjs['Local_Settings'].grab_item('General_Settings_Path')
 
-            if mydir and os.path.exists(mydir):
-                myobjs['Settings'] = ShelfHandle(os.path.join(myobjs['Local_Settings'].grab_item(
-                    'General_Settings_Path'), 'General_Settings'))
-                myobjs['Settings'].read_shelf()
-            else:
-                while not myinput:
-                    print("Please input a directory path where to setup general settings at:")
-                    myinput = input()
-
-                    if myinput and not os.path.exists(myinput):
-                        myinput = None
-        else:
-            while not myinput:
-                print("Please input a directory path where to setup general settings at:")
-                myinput = input()
-
-                if myinput and not os.path.exists(myinput):
-                    myinput = None
-
-        if myinput:
-            myobjs['Local_Settings'] = ShelfHandle(os.path.join(scriptdir, 'Script_Settings'))
-            myobjs['Local_Settings'].add_item('General_Settings_Path', myinput)
-            myobjs['Local_Settings'].write_shelf()
-            myobjs['Settings'] = ShelfHandle(os.path.join(myinput, 'General_Settings'))
+        if mydir and os.path.exists(mydir):
+            myobjs['Settings'] = ShelfHandle(os.path.join(myobjs['Local_Settings'].grab_item(
+                'General_Settings_Path'), 'General_Settings'))
             myobjs['Settings'].read_shelf()
+            myobjs['Event_Log'] = LogHandle(scriptdir, filename)
+            myobjs['SQL'] = SQLHandle(logobj=myobjs['Event_Log'], settingsobj=myobjs['Settings'])
+            myobjs['Errors'] = ErrHandle(myobjs['Event_Log'])
 
-        myobjs['Event_Log'] = LogHandle(scriptdir, filename)
-        myobjs['SQL'] = SQLHandle(logobj=myobjs['Event_Log'], settingsobj=myobjs['Settings'])
-        myobjs['Errors'] = ErrHandle(myobjs['Event_Log'])
-
-        return myobjs
+            return myobjs
+        else:
+            raise Exception('No General Settings were established. Please re-run')
     else:
         raise Exception('Invalid script path provided')
+
+
+class GeneralSettingsGUI:
+    def __init__(self, script_dir):
+        self.main = Tk()
+        self.gen_dir = StringVar()
+        self.script_dir = script_dir
+
+    def build_gui(self):
+        file_path = os.path.join(self.script_dir, 'Script_Settings_backup')
+        header_text = "Settings will need to be setup\nPlease specify the location or to set the location of General Settings"
+
+        # Set GUI Geometry and GUI Title
+        self.main.geometry('400x130+500+90')
+        self.main.title('Settings Setup')
+        self.main.resizable(False, False)
+
+        # Set GUI Frames
+        header_frame = Frame(self.main)
+        settings_frame = LabelFrame(self.main, text='Settings Setup', width=508, height=70)
+        buttons_frame = Frame(self.main)
+
+        # Apply Frames into GUI
+        header_frame.pack(fill="both")
+        settings_frame.pack(fill="both")
+        buttons_frame.pack(fill="both")
+
+        # Apply Header text to Header_Frame that describes purpose of GUI
+        header = Message(self.main, text=header_text, width=400, justify=CENTER)
+        header.pack(in_=header_frame)
+
+        # Apply Directory Entry Box Widget
+        dir_label = Label(settings_frame, text='Directory:')
+        dir_txtbox = Entry(settings_frame, textvariable=self.gen_dir, width=42)
+        dir_label.grid(row=0, column=0, padx=4, pady=5)
+        dir_txtbox.grid(row=0, column=1, padx=4, pady=5)
+
+        # Apply Directory Finder Button Widget
+        find_dir_button = Button(settings_frame, text='Find Dir', width=7, command=self.find_dir)
+        find_dir_button.grid(row=0, column=2, padx=4, pady=5)
+
+        # Apply Buttons to the Buttons Frame
+        #     Save Settings
+        create_button = Button(buttons_frame, text='Create Settings', width=15, command=self.create_settings)
+        create_button.grid(row=0, column=0, pady=6, padx=9)
+
+        #     Restore Button
+        restore_button = Button(buttons_frame, text='Restore Settings', width=15, command=self.restore_settings)
+        restore_button.grid(row=0, column=1, pady=6, padx=9)
+
+        if os.path.exists('%s.dir' % file_path) and os.path.exists('%s.dat' % file_path)\
+                and os.path.exists('%s.bak' % file_path):
+            restore_button.configure(state=NORMAL)
+        else:
+            restore_button.configure(state=DISABLED)
+
+        #     Cancel Button
+        cancel_button = Button(buttons_frame, text='Cancel', width=15, command=self.cancel)
+        cancel_button.grid(row=0, column=2, pady=6, padx=9)
+
+        # Show dialog
+        self.main.mainloop()
+
+    def find_dir(self):
+        if self.gen_dir.get() and os.path.exists(self.gen_dir.get()):
+            init_dir = os.path.dirname(self.gen_dir.get())
+        else:
+            init_dir = '/'
+
+        file = filedialog.askdirectory(initialdir=init_dir, title='Select Directory', parent=self.main)
+
+        if file:
+            self.gen_dir.set(file)
+
+    def create_settings(self):
+        gen_dir = self.gen_dir.get()
+
+        if not gen_dir:
+            messagebox.showerror('Field Empty Error!', 'No value has been inputed for Directory',
+                                 parent=self.main)
+        elif not os.path.exists(gen_dir):
+            messagebox.showerror('Invalid Path Error!', 'Directory Path does not exist',
+                                 parent=self.main)
+        else:
+            obj = ShelfHandle(os.path.join(self.script_dir, 'Script_Settings'))
+            obj.add_item('General_Settings_Path', self.gen_dir.get())
+            obj.write_shelf()
+            del obj
+            self.main.destroy()
+
+    def restore_settings(self):
+        backup_file = os.path.join(self.script_dir, 'Script_Settings_backup')
+        setting_file = os.path.join(self.script_dir, 'Script_Settings')
+
+        if os.path.exists('%s.dat' % backup_file) \
+                and os.path.exists('%s.dir' % backup_file) \
+                and os.path.exists('%s.bak' % backup_file):
+            shutil.copy2('%s.dat' % backup_file, '%s.dat' % setting_file)
+            shutil.copy2('%s.dir' % backup_file, '%s.dir' % setting_file)
+            shutil.copy2('%s.bak' % backup_file, '%s.bak' % setting_file)
+            self.cancel()
+
+    def cancel(self):
+        self.main.destroy()
 
 
 class CryptHandle:
@@ -158,39 +256,54 @@ class ShelfHandle:
         if os.path.exists(os.path.split(self.file)[0]):
             self.file = filepath
 
+    def backup(self):
+        file = '%s.bak' % self.file
+        file2 = '%s.dat' % self.file
+        file3 = '%s.dir' % self.file
+
+        if os.path.exists(file) and os.stat(file).st_size > 0 and os.path.exists(file2) and os.stat(file2).st_size > 0 \
+                and os.path.exists(file3) and os.stat(file3).st_size > 0:
+            shutil.copy2(file, '%s_backup.bak' % self.file)
+            shutil.copy2(file2, '%s_backup.dat' % self.file)
+            shutil.copy2(file3, '%s_backup.dir' % self.file)
+
     def read_shelf(self):
         self.shelf_data.clear()
         self.rem_keys.clear()
         self.add_keys.clear()
+
         shelf = shelve_lock.open(self.file)
 
-        if len(shelf) > 0:
-            for k, v in shelf.items():
-                self.shelf_data[k] = v
-
-        shelf.close()
+        try:
+            if len(shelf) > 0:
+                for k, v in shelf.items():
+                    self.shelf_data[k] = v
+        finally:
+            shelf.close()
 
     def write_shelf(self):
         shelf = shelve_lock.open(self.file)
 
-        if len(self.rem_keys) > 0:
-            for k in self.rem_keys:
-                if k in shelf.keys():
-                    del shelf[k]
+        try:
+            if len(self.rem_keys) > 0:
+                for k in self.rem_keys:
+                    if k in shelf.keys():
+                        del shelf[k]
 
-        if len(self.add_keys) > 0:
-            for key in self.add_keys:
-                shelf[key] = self.shelf_data[key]
+            if len(self.add_keys) > 0:
+                for key in self.add_keys:
+                    shelf[key] = self.shelf_data[key]
 
-            self.shelf_data.clear()
+                self.shelf_data.clear()
 
-        if len(shelf) > 0:
-            for k, v in shelf.items():
-                self.shelf_data[k] = v
+            if len(shelf) > 0:
+                for k, v in shelf.items():
+                    self.shelf_data[k] = v
 
-        self.rem_keys.clear()
-        self.add_keys.clear()
-        shelf.close()
+            self.rem_keys.clear()
+            self.add_keys.clear()
+        finally:
+            shelf.close()
 
     def empty_shelf(self):
         shelf = shelve_lock.open(self.file)
@@ -256,7 +369,45 @@ class ShelfHandle:
                 self.shelf_data[k] = v
 
 
+class FakeConsole(Frame):
+    def __init__(self, root, *args, **kargs):
+        Frame.__init__(self, root, *args, **kargs)
+
+        # white text on black background,
+        # for extra versimilitude
+        self.text = Text(self, bg="black", fg="white")
+        self.text.pack()
+
+        # list of things not yet printed
+        self.printQueue = []
+
+        # one thread will be adding to the print queue,
+        # and another will be iterating through it.
+        # better make sure one doesn't interfere with the other.
+        self.printQueueLock = threading.Lock()
+
+        self.after(5, self.on_idle)
+
+    # check for new messages every five milliseconds
+    def on_idle(self):
+        with self.printQueueLock:
+            for msg in self.printQueue:
+                self.text.insert(END, msg)
+                self.text.see(END)
+            self.printQueue = []
+        self.after(5, self.on_idle)
+
+    # print msg to the console
+    def show(self, msg, sep="\n"):
+        with self.printQueueLock:
+            self.printQueue.append(str(msg) + sep)
+
+
 class LogHandle:
+    new_console = False
+    console = None
+    root = None
+
     def __init__(self, scriptpath, filename=None):
         if scriptpath:
             if not os.path.exists(os.path.join(scriptpath, '01_Event_Logs')):
@@ -271,14 +422,43 @@ class LogHandle:
         else:
             raise Exception('Settings object was not passed through')
 
+    def log_mode(self, new_console=False, root=None):
+        if self.console and hasattr(self.console, 'destroy'):
+            self.root.destroy()
+            self.console = None
+            self.root = None
+
+        self.root = root
+        self.new_console = new_console
+
+    def log_gui_root(self):
+        return self.root
+
     def write_log(self, message, action='info'):
         filepath = os.path.join(self.EventLog_Dir,
                                 "{0}_{1}_Log.txt".format(datetime.datetime.now().__format__("%Y%m%d"), self.filename))
 
+        for handler in logging.root.handlers[:]:
+            logging.root.removeHandler(handler)
+
         logging.basicConfig(filename=filepath,
                             level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
 
-        print('{0} - {1} - {2}'.format(datetime.datetime.now(), action.upper(), message))
+        if self.new_console:
+            if not self.console:
+                if self.root:
+                    self.root = Toplevel(self.root)
+                    self.console = FakeConsole(self.root)
+                    threading.Thread(target=self.console.pack).start()
+                else:
+                    self.root = Tk()
+                    self.console = FakeConsole(self.root)
+                    self.console.pack()
+                    threading.Thread(target=self.root.mainloop).start()
+
+            self.console.show(message)
+        else:
+            print('{0} - {1} - {2}'.format(datetime.datetime.now(), action.upper(), message))
 
         if action == 'debug':
             logging.debug(message)
@@ -293,17 +473,78 @@ class LogHandle:
 
 
 class SQLHandle:
-    server = None
-    database = None
-    dsn = None
-    conn_type = None
-    conn_str = None
-    session = False
-    engine = None
-    conn = None
-    cursor = None
-
     def __init__(self, logobj=None, settingsobj=None, server=None, database=None, dsn=None, accdb_file=None):
+        self.server = None
+        self.database = None
+        self.dsn = None
+        self.accdb_file = None
+        self.conn_type = None
+        self.raw_engine = None
+        self.engine = None
+        self.session = None
+        self.cursor = None
+        self.dataset = []
+
+        self.change_config(settingsobj, server, database, dsn, accdb_file)
+        self.logobj = logobj
+
+    def __connect_str(self):
+        if self.conn_type == 'alch':
+            assert(self.server and self.database)
+            p = quote_plus(
+                'DRIVER={};PORT={};SERVER={};DATABASE={};Trusted_Connection=yes;'.format(
+                    '{SQL Server Native Client 11.0}', '1433', self.server, self.database))
+
+            return '{}+pyodbc:///?odbc_connect={}'.format('mssql', p)
+        elif self.conn_type == 'sql':
+            assert(self.server and self.database)
+            return 'driver={0};server={1};database={2};autocommit=True;Trusted_Connection=yes'\
+                .format('{SQL Server}', self.server, self.database)
+        elif self.conn_type == 'accdb':
+            assert self.accdb_file
+            return 'DRIVER={};DBQ={};Exclusive=1'.format('{Microsoft Access Driver (*.mdb, *.accdb)}',
+                                                         self.accdb_file)
+        elif self.conn_type == 'dsn':
+            assert self.dsn
+            return 'DSN={};DATABASE=default;Trusted_Connection=Yes;'.format(self.dsn)
+        else:
+            raise Exception('Invalid conn_type specified')
+
+    def __proc_errors(self, err_code=None, err_desc=None):
+        if self.logobj:
+            if err_code and err_desc:
+                self.logobj.write_log('[Error Code {0}] - {1}'.format(err_code, err_desc))
+            else:
+                self.logobj.write_log(traceback.format_exc(), 'critical')
+        else:
+            if err_code and err_desc:
+                print('[Error Code {0}] - {1}'.format(err_code, err_desc))
+            else:
+                print(traceback.format_exc())
+
+    def __commit(self, engine):
+        try:
+            if engine and hasattr(engine, 'commit'):
+                engine.commit()
+        except:
+            self.__rollback(engine)
+
+    def __rollback(self, engine):
+        try:
+            if engine and hasattr(engine, 'rollback'):
+                engine.rollback()
+        except:
+            self.close_conn()
+
+    def __store_dataset(self, res_rowset):
+        try:
+            data = [tuple(t) for t in res_rowset.fetchall()]
+            cols = [column[0] for column in res_rowset.description]
+            self.dataset.append(pd.DataFrame(data, columns=cols))
+        except:
+            pass
+
+    def change_config(self, settingsobj=None, server=None, database=None, dsn=None, accdb_file=None):
         if settingsobj:
             if settingsobj.grab_item('Server'):
                 self.server = settingsobj.grab_item('Server').decrypt_text()
@@ -321,243 +562,220 @@ class SQLHandle:
         else:
             raise Exception('Invalid connection variables passed')
 
-        if logobj:
-            self.logobj = logobj
-
-    def change_config(self, settingsobj=None, server=None, database=None, dsn=None, accdb_file=None):
-        if settingsobj:
-            self.server = settingsobj.grab_item('Server').decrypt_text()
-            self.database = settingsobj.grab_item('Database').decrypt_text()
-            self.dsn = settingsobj.grab_item('DSN').decrypt_text()
-        elif server and database:
-            self.server = server
-            self.database = database
-        elif dsn:
-            self.dsn = dsn
-        elif accdb_file:
-            self.accdb_file = accdb_file
-        else:
-            raise Exception('Invalid connection variables passed')
-
-    def create_conn_str(self):
-        if self.conn_type == 'alch':
-            assert(self.server and self.database)
-            p = quote_plus(
-                'DRIVER={};PORT={};SERVER={};DATABASE={};Trusted_Connection=yes;'
-                    .format('{SQL Server Native Client 11.0}', '1433', self.server, self.database))
-
-            self.conn_str = '{}+pyodbc:///?odbc_connect={}'.format('mssql', p)
-        elif self.conn_type == 'sql':
-            assert(self.server and self.database)
-            self.conn_str = 'driver={0};server={1};database={2};autocommit=True;Trusted_Connection=yes'\
-                .format('{SQL Server}', self.server, self.database)
-        elif self.conn_type == 'accdb':
-            assert self.accdb_file
-            self.conn_str = 'DRIVER={};DBQ={};Exclusive=1'.format('{Microsoft Access Driver (*.mdb, *.accdb)}',
-                                                                  self.accdb_file)
-        elif self.conn_type == 'dsn':
-            assert self.dsn
-            self.conn_str = 'DSN={};DATABASE=default;Trusted_Connection=Yes;'.format(self.dsn)
-        else:
-            raise Exception('Invalid conn_type specified')
-
-    def test_conn(self, conn_type=None):
-        assert(conn_type or self.conn_type)
-        myreturn = False
-
-        if conn_type:
-            self.conn_type = conn_type
-
-        self.create_conn_str()
-
-        myquery = "SELECT 1 from sys.sysprocesses"
+    def connect(self, conn_type, test_conn=False, session=False, conn_timeout=3, query_time_out=0):
+        self.conn_type = conn_type
+        self.session = session
+        conn_str = self.__connect_str()
 
         try:
             if self.conn_type == 'alch':
-                self.engine = mysql.create_engine(self.conn_str)
-                obj = self.engine.execute(mysql.text(myquery))
-                if obj._saved_cursor.arraysize > 0:
-                    myreturn = True
+                if not self.raw_engine:
+                    self.raw_engine = mysql.create_engine(
+                        conn_str, connect_args={'timeout': conn_timeout, 'connect_timeout': conn_timeout,
+                                                'options': '-c statement_timeout=%s' % query_time_out})
+
+                    try:
+                        self.raw_engine.connect()
+                    except:
+                        self.__proc_errors()
+                        self.close_conn()
+                        return False
+                    else:
+                        self.raw_engine = self.raw_engine.raw_connection()
+
+                if not self.engine:
+                    self.engine = mysql.create_engine(
+                        conn_str, connect_args={'timeout': conn_timeout, 'connect_timeout': conn_timeout,
+                                                'options': '-c statement_timeout=%s' % query_time_out})
+
+                    try:
+                        self.engine.connect()
+                    except:
+                        self.__proc_errors()
+                        self.close_conn()
+                        return False
+                    else:
+                        if self.session:
+                            self.engine = sessionmaker(bind=self.engine)
+                            self.engine = self.engine()
+                            self.engine._model_changes = {}
+
+                if test_conn:
+                    self.close_conn()
+            elif not self.engine and not self.raw_engine:
+                self.raw_engine = pyodbc.connect(
+                        conn_str, connect_args={'timeout': conn_timeout, 'connect_timeout': conn_timeout,
+                                                'options': '-c statement_timeout=%s' % query_time_out})
+                try:
+                    self.raw_engine.commit()
+                except:
+                    self.__proc_errors()
+                    self.close_conn()
+                    return False
+        except Exception as e:
+            self.__proc_errors(err_code=type(e).__name__, err_desc=str(e))
+            self.close_conn()
+            return False
+        else:
+            if test_conn:
+                self.close_conn()
+
+            return True
+
+    def close_cursor(self):
+        if self.cursor and hasattr(self.cursor, 'cancel'):
+            self.cursor.cancel()
+
+        self.__rollback(self.cursor)
+        self.cursor = None
+
+    def close_conn(self):
+        self.close_cursor()
+
+        if self.raw_engine and hasattr(self.raw_engine, 'close'):
+            self.raw_engine.close()
+
+        if self.raw_engine and hasattr(self.raw_engine, 'dispose'):
+            self.raw_engine.dispose()
+
+        if self.engine and hasattr(self.engine, 'close'):
+            self.engine.close()
+
+        if self.engine and hasattr(self.engine, 'dispose'):
+            self.engine.dispose()
+
+        self.engine = None
+        self.raw_engine = None
+        self.session = False
+
+    def grab_sql_objs(self):
+        if self.engine:
+            return [self.engine, self.raw_engine]
+        elif self.raw_engine:
+            return self.raw_engine
+
+    def tables(self):
+        if self.raw_engine:
+            try:
+                with closing(self.raw_engine.cursor()) as cursor:
+                    if self.conn_type == 'accdb':
+                        tables = [[t.table_type, [t.table_cat, t.table_schem, t.table_name]]
+                                  for t in cursor.tables() if 'msys' not in t.table_name.lower()]
+                    else:
+                        tables = [[t.table_type, [t.table_cat, t.table_schem, t.table_name]] for t in cursor.tables()]
+            except:
+                self.__proc_errors()
             else:
-                self.conn = pyodbc.connect(self.conn_str)
-                self.cursor = self.conn.cursor()
-                self.conn.commit()
+                return tables
 
-                if self.conn_type == 'accdb' and len(self.get_accdb_tables()) > 0:
-                    myreturn = True
-                else:
-                    df = sql.read_sql(myquery, self.conn)
-
-                    if len(df) > 0:
-                        myreturn = True
-        except:
-            pass
-        finally:
-            self.close()
-
-        return myreturn
-
-    def get_accdb_tables(self):
-        if self.conn_type == 'accdb':
-            mylist = []
-            ct = self.cursor.tables
-
-            for row in ct():
-                if 'msys' not in row.table_name.lower() and row.table_type == "TABLE":
-                    mylist.append(row.table_name)
-
-            return mylist
-
-    def connect(self, conn_type):
-        assert (conn_type or self.conn_type)
-        self.conn_type = conn_type
-
-        if self.test_conn():
+    def create_table(self, df, table):
+        if self.conn_type == 'alch' and not self.session and self.engine:
             try:
-                if self.conn_type == 'alch':
-                    self.engine = mysql.create_engine(self.conn_str)
-                else:
-                    self.conn = pyodbc.connect(self.conn_str, autocommit=True)
-                    self.cursor = self.conn.cursor()
-                    self.conn.commit()
-            except:
-                self.close()
-                if self.logobj:
-                    self.logobj.write_log(traceback.format_exc(), 'critical')
-                else:
-                    print(traceback.format_exc())
-                raise Exception('Stopping script')
-        elif self.conn_type in ('alch', 'sql'):
-            self.server = None
-            self.database = None
-            raise Exception(
-                'Error 1 - Failed test connection to SQL Server. Server name {0} or database name {1} is incorrect'
-                    .format(self.server, self.database))
-        elif self.conn_type == 'accdb':
-            self.accdb_file = None
-            raise Exception(
-                'Error 1 - Failed test connection to access databse file {0}'.format(
-                    self.accdb_file))
-        else:
-            self.dsn = None
-            raise Exception('Error 1 - Failed test connection to DSN connection {0}'.format(self.dsn))
-
-    def close(self):
-        if self.conn_type == 'alch':
-            if self.engine:
-                self.engine.dispose()
-        else:
-            if self.cursor:
-                self.cursor.close()
-
-            if self.conn:
-                self.conn.close()
-
-    def createsession(self):
-        if self.conn_type == 'alch':
-            try:
-                self.engine = sessionmaker(bind=self.engine)
-                self.engine = self.engine()
-                self.engine._model_changes = {}
-                self.session = True
-            except:
-                self.close()
-                if self.logobj:
-                    self.logobj.write_log(traceback.format_exc(), 'critical')
-                else:
-                    print(traceback.format_exc())
-                raise Exception('Stopping script')
-
-    def createtable(self, dataframe, sqltable):
-        if self.conn_type == 'alch' and not self.session:
-            try:
-                dataframe.to_sql(
-                    sqltable,
+                df.to_sql(
+                    table,
                     self.engine,
-                    if_exists='replace',
+                    if_exists='replace'
                 )
             except:
-                self.close()
-                if self.logobj:
-                    self.logobj.write_log(traceback.format_exc(), 'critical')
-                else:
-                    print(traceback.format_exc())
-                raise Exception('Stopping script')
-
-    def grabengine(self):
-        if self.conn_type == 'alch':
-            return self.engine
-        else:
-            return [self.cursor, self.conn]
-
-    def upload(self, dataframe, sqltable, index=True, index_label='linenumber'):
-        if self.conn_type == 'alch' and not self.session:
-            mytbl = sqltable.split(".")
-            try:
-                if len(mytbl) > 1:
-                    dataframe.to_sql(
-                        mytbl[1],
-                        self.engine,
-                        schema=mytbl[0],
-                        if_exists='append',
-                        index=index,
-                        index_label=index_label,
-                        chunksize=1000
-                    )
-                else:
-                    dataframe.to_sql(
-                        mytbl[0],
-                        self.engine,
-                        if_exists='replace',
-                        index=False,
-                        chunksize=1000
-                    )
+                self.__proc_errors()
+            else:
                 return True
+
+    def upload_df(self, df, table, if_exists='append', index=True, index_label='linenumber'):
+        if self.conn_type == 'alch' and not self.session and self.engine:
+            tbl = table.split('.')
+
+            if len(tbl) == 2:
+                schema = tbl[0]
+                tbl_name = tbl[1]
+            else:
+                schema = None
+                tbl_name = table
+
+            try:
+                df.to_sql(
+                    tbl_name,
+                    self.engine,
+                    schema=schema,
+                    if_exists=if_exists,
+                    index=index,
+                    index_label=index_label,
+                    chunksize=1000
+                )
             except:
-                self.close()
-                if self.logobj:
-                    self.logobj.write_log(traceback.format_exc(), 'critical')
-                else:
-                    print(traceback.format_exc())
-                raise Exception('Stopping script')
-
-    def query(self, query):
-        try:
-            if self.conn_type == 'alch':
-                obj = self.engine.execute(mysql.text(query))
-
-                if obj._saved_cursor.arraysize > 0:
-                    data = obj.fetchall()
-                    columns = obj._metadata.keys
-
-                    return pd.DataFrame(data, columns=columns)
-
+                self.__proc_errors()
+                self.close_conn()
             else:
-                df = sql.read_sql(query, self.conn)
+                return True
+
+    def execute(self, str_txt, params=None, execute=False, proc=False, ret_err=False):
+        df = pd.DataFrame()
+
+        try:
+            if proc and params:
+                str_txt = 'EXEC {0} {1}'.format(str_txt, params)
+            elif proc:
+                str_txt = 'EXEC {0}'.format(str_txt)
+
+            if execute and self.raw_engine:
+                with closing(self.raw_engine.cursor()) as self.cursor:
+                    self.dataset = []
+                    result = self.cursor.execute(str_txt)
+                    self.__store_dataset(result)
+
+                    while result.nextset():
+                        self.__store_dataset(result)
+
+                    if len(self.dataset) == 1 and not self.dataset[0].empty:
+                        df = self.dataset[0]
+                    elif len(self.dataset) > 1:
+                        df = self.dataset
+
+                    self.__commit(self.cursor)
+
+                self.cursor = None
+            elif not execute:
+                if self.conn_type == 'alch' and self.engine:
+                    self.cursor = self.engine.execute(mysql.text(str_txt))
+
+                    if self.cursor and self.cursor._saved_cursor.arraysize > 0:
+                        df = pd.DataFrame(self.cursor.fetchall(), columns=self.cursor._metadata.keys)
+
+                    self.cursor = None
+                elif self.conn_type != 'alch' and self.raw_engine:
+                    df = sql.read_sql(str_txt, self.raw_engine)
+        except SQLAlchemyError as e:
+            err = [df, e.code, str(e.__dict__['orig'])]
+            self.__rollback(self.cursor)
+            self.cursor = None
+
+            if ret_err:
+                return err
+            else:
+                self.__proc_errors(err_code=err[1], err_desc=err[2])
+        except pyodbc.Error as e:
+            err = [df, e.args[0], e.args[1]]
+            self.__rollback(self.cursor)
+            self.cursor = None
+
+            if ret_err:
+                return err
+            else:
+                self.__proc_errors(err_code=err[1], err_desc=err[2])
+        except (AttributeError, Exception) as e:
+            err = [df, type(e).__name__, str(e)]
+            self.__rollback(self.cursor)
+            self.cursor = None
+
+            if ret_err:
+                return err
+            else:
+                self.__proc_errors(err_code=err[1], err_desc=err[2])
+        else:
+            if ret_err:
+                return [df, None, None]
+            else:
                 return df
-
-        except:
-            self.close()
-            if self.logobj:
-                self.logobj.write_log(traceback.format_exc(), 'critical')
-            else:
-                print(traceback.format_exc())
-            raise Exception('Stopping script')
-
-    def execute(self, query):
-        try:
-            if self.conn_type == 'alch':
-                self.engine.execution_options(autocommit=True).execute(mysql.text(query))
-            else:
-                self.cursor.execute(query)
-
-        except:
-            self.close()
-            if self.logobj:
-                self.logobj.write_log(traceback.format_exc(), 'critical')
-            else:
-                print(traceback.format_exc())
-            raise Exception('Stopping script')
 
 
 class ErrHandle:

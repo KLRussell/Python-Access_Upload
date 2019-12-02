@@ -3,12 +3,17 @@ from tkinter import *
 from tkinter import messagebox
 from Global import grabobjs
 from Global import CryptHandle
+from Global import SQLHandle
+from dateutil import relativedelta
+from datetime import datetime
 
 import os
 import smtplib
 import pandas as pd
 import ftplib
 import sys
+import pathlib as pl
+import portalocker
 
 if getattr(sys, 'frozen', False):
     application_path = sys.executable
@@ -21,7 +26,245 @@ else:
 curr_dir = os.path.dirname(os.path.abspath(application_path))
 main_dir = os.path.dirname(curr_dir)
 global_objs = grabobjs(main_dir, 'STC_Upload')
+ProcessedDir = os.path.join(main_dir, "03_Processed")
 icon_path = os.path.join(ico_dir, '%s.ico' % os.path.splitext(os.path.basename(application_path))[0])
+SQLDir = os.path.join(main_dir, "05_SQL")
+
+
+class AccdbHandle:
+    config = None
+    accdb_cols = None
+    sql_cols = None
+    upload_df = pd.DataFrame()
+
+    def __init__(self, file, batch):
+        self.file = file
+        self.batch = batch
+        self.log = global_objs['Event_Log']
+        self.settings = global_objs['Local_Settings']
+        self.settings.read_shelf()
+        self.configs = self.settings.grab_item('Accdb_Configs')
+        self.accdb = SQLHandle(logobj=self.log, accdb_file=file)
+        self.asql = SQLHandle(logobj=self.log, settingsobj=global_objs['Settings'])
+        self.asql.connect(conn_type='alch')
+        self.accdb.connect(conn_type='accdb')
+        self.sql_tables = self.asql.tables()
+        self.accdb_tables = self.accdb.tables()
+
+    def get_accdb_tables(self):
+        return self.accdb_tables
+
+    @staticmethod
+    def validate_cols(cols, true_cols):
+        if cols:
+            for col in cols:
+                found = False
+
+                for true_col in true_cols:
+                    if col.lower() == true_col.lower():
+                        found = True
+                        break
+
+                if not found:
+                    return False
+
+            return True
+
+    def process_err(self, table, header, insert):
+        config_review = self.settings.grab_item('Config_Review')
+
+        if config_review:
+            for config in config_review:
+                if config[1].lower() == table.lower():
+                    return
+        else:
+            config_review = []
+
+        config_review.append([self.file, table, self.accdb_cols, header, insert])
+        self.settings.add_item('Config_Review', config_review)
+        self.settings.write_shelf()
+
+    def get_config(self, table):
+        self.config = None
+
+        if table and self.configs:
+            for config in self.configs:
+                if config[0].lower() == table.lower():
+                    self.config = config
+                    break
+
+    def get_accdb_cols(self, table):
+        myresults = self.accdb.execute('''
+            SELECT TOP 1 *
+            FROM [{0}]'''.format(table))
+
+        if len(myresults) < 1:
+            raise Exception('File {0} has no valid columns in table {1}'.format(
+                os.path.basename(self.file), table))
+
+        self.accdb_cols = myresults.columns.tolist()
+
+    def get_sql_cols(self, table):
+        myresults = self.asql.execute('''
+            SELECT
+                Column_Name
+
+            FROM INFORMATION_SCHEMA.COLUMNS
+
+            WHERE
+                TABLE_SCHEMA = '{0}'
+                    AND
+                TABLE_NAME = '{1}'
+        '''.format(table.split('.')[0], table.split('.')[1]))
+
+        if len(myresults) < 1:
+            raise Exception('SQL Table {} has no valid tables in the access database file'.format(table))
+
+        self.sql_cols = myresults['Column_Name'].tolist()
+
+    def validate_sql_table(self, table):
+        if table:
+            splittable = table.split('.')
+
+            if len(splittable) == 2:
+                for table in self.sql_tables:
+                    if table[0] == 'TABLE' and table[1][1].lower() == splittable[0].lower()\
+                            and table[1][2].lower() == splittable[1].lower():
+                        return True
+
+    def validate(self, table):
+        header = None
+        insert = False
+        self.get_config(table)
+        self.get_accdb_cols(table)
+
+        if not self.config:
+            header = ['Welcome to STC Upload!', 'There is no configuration for table.',
+                      'Please add configuration setting below:']
+            insert = True
+        elif self.config and not self.validate_sql_table(self.config[3]):
+            header = ['Welcome to STC Upload!', 'SQL Server TBL does not exist.',
+                      'Please fix configuration in Upload Settings:']
+        elif self.config and not self.validate_cols(self.config[2], self.accdb_cols):
+            header = ['Welcome to STC Upload!', 'One or more column does not exist.',
+                      'Please redo config for access table columns:']
+        else:
+            self.get_sql_cols(self.config[3])
+
+            if not self.validate_cols(self.config[4], self.sql_cols):
+                header = ['Welcome to STC Upload!', 'One or more column does not exist.',
+                          'Please redo config for sql table columns:']
+
+            if not self.validate_cols(['Source_File'], self.sql_cols):
+                header = ['Welcome to STC Upload!', 'SQL Table does not have a Source_File column:']
+
+        if header:
+            self.log.write_log('Access table {0} failed validation [{1}]. Appending to GUI for fix'.format(
+                table, '.'.join(header)), 'warning')
+            self.process_err(table, '\n'.join(header), insert)
+            return False
+        elif self.config:
+            if self.updates_not_exists():
+                return True
+            else:
+                self.log.write_log('Updates already exist for SQL table %s' % self.config[3], 'warning')
+                return False
+
+    def updates_not_exists(self):
+        return self.asql.execute('''
+            SELECT TOP 1 1
+            FROM {0}
+            WHERE
+                Source_File = 'Updated Records {1}'
+        '''.format(self.config[3], self.batch)).empty
+
+    '''
+    def switch_config(self):
+        if self.configs and self.config:
+            for config in self.configs:
+                if config == self.config:
+                    self.configs.remove(config)
+                    break
+
+            self.configs.append(self.config)
+            global_objs['Local_Settings'].del_item('Accdb_Configs')
+            global_objs['Local_Settings'].add_item('Accdb_Configs', self.configs)
+
+    def config_gui(self, table, header_text, insert=True):
+        if insert:
+            obj = AccSettingsGUI()
+            obj.build_gui(header_text, table, self.accdb_cols)
+            self.get_config(table)
+        else:
+            old_config = self.config
+            self.switch_config()
+            obj = AccSettingsGUI(config=old_config)
+
+            obj.build_gui(header_text)
+            self.get_config(table)
+
+            if old_config == self.config:
+                self.config = None
+    '''
+
+    def process(self, table):
+        self.log.write_log('Reading data from accdb table [%s]' % table)
+
+        self.upload_df = self.accdb.execute('''
+            SELECT
+                [{0}],
+                'Updated Records {2}' As Source_File
+
+            FROM [{1}]
+        '''.format('], ['.join(self.config[2]), table, self.batch))
+
+        if not self.upload_df.empty:
+            self.upload_df.columns = self.config[4] + ('Source_File',)
+
+            if self.config[5]:
+                self.log.write_log('Truncating table [%s]' % self.config[3])
+                self.asql.execute('truncate table %s' % self.config[3], execute=True)
+
+            self.log.write_log('Uploading data to sql table %s' % self.config[3])
+            self.asql.upload_df(self.upload_df, self.config[3], index=False, index_label=None)
+            self.log.write_log('Data successfully uploaded from table [{0}] to sql table {1}'.format(
+                table, self.config[3]))
+            return True
+        else:
+            self.log.write_log('Failed to grab data from access table [{0}]. No update made'.format(table), 'error')
+            return False
+
+    def apply_features(self, table):
+        self.log.write_log('Appending features to %s if they exist' % self.config[3])
+
+        if self.validate_cols(['Edit_DT'], self.sql_cols):
+            self.asql.execute('''
+                UPDATE %s
+                SET
+                    Edit_DT = GETDATE()
+            ''' % self.config[3], execute=True)
+        elif self.validate_cols(['Edit_Date'], self.sql_cols):
+            self.asql.execute('''
+                UPDATE %s
+                SET
+                    Edit_Date = GETDATE()
+            ''' % self.config[3], execute=True)
+
+        path = os.path.join(SQLDir, table)
+
+        if os.path.exists(path):
+            for file in list(pl.Path(path).glob('*.sql')):
+                with portalocker.Lock(str(file), 'r') as f:
+                    query = f.read()
+
+                self.asql.execute(query, execute=True)
+
+    def close_conn(self):
+        self.accdb.close_conn()
+        self.asql.close_conn()
+
+    def get_success_stats(self, table):
+        return [table, self.config[3], len(self.upload_df)]
 
 
 class SettingsGUI:
@@ -64,12 +307,13 @@ class SettingsGUI:
         self.email_to = StringVar()
         self.email_cc = StringVar()
 
-        # GUI Bind On Destruction event
-        self.main.bind('<Destroy>', self.gui_destroy)
-
-    # Function executes when GUI is destroyed
-    def gui_destroy(self, event):
-        self.asql.close()
+        try:
+            self.asql.connect('alch')
+            self.sql_tables = self.asql.tables()
+        except:
+            self.sql_tables = None
+        finally:
+            self.asql.close_conn()
 
     # Static function to fill textbox in GUI
     @staticmethod
@@ -92,16 +336,11 @@ class SettingsGUI:
             global_objs[setting_list].write_shelf()
 
     # Function to connect to SQL connection for this class
-    def sql_connect(self):
-        if self.asql.test_conn('alch'):
-            self.asql.connect('alch')
+    def test_sql_conn(self):
+        if self.asql.connect('alch', test_conn=True):
             return True
         else:
             return False
-
-    # Function to close SQL connection for this class
-    def sql_close(self):
-        self.asql.close()
 
     # Function to build GUI for settings
     def build_gui(self, header=None, acc_table=None, acc_cols=None):
@@ -258,7 +497,7 @@ class SettingsGUI:
         if not self.email_port.get():
             self.email_port.set("587")
 
-        if not self.server.get() or not self.database.get() or not self.asql.test_conn('alch'):
+        if not self.server.get() or not self.database.get() or not self.test_sql_conn():
             self.save_button.configure(state=DISABLED)
             self.upload_button.configure(state=DISABLED)
             self.fserver_txtbox.configure(stat=DISABLED)
@@ -281,7 +520,7 @@ class SettingsGUI:
                  global_objs['Settings'].grab_item('Database') != self.database.get()):
             self.asql.change_config(server=self.server.get(), database=self.database.get())
 
-            if self.asql.test_conn('alch'):
+            if self.test_sql_conn():
                 self.add_setting('Settings', self.server.get(), 'Server')
                 self.add_setting('Settings', self.database.get(), 'Database')
                 self.save_button.configure(state=NORMAL)
@@ -503,7 +742,7 @@ class SettingsGUI:
         if self.change_upload_settings_obj:
             self.change_upload_settings_obj.cancel()
 
-        self.change_upload_settings_obj = ChangeAccSettings(self.main)
+        self.change_upload_settings_obj = ChangeAccSettings(self.main, self.sql_tables)
         self.change_upload_settings_obj.build_gui()
 
     # Function to destroy GUI when Cancel button is pressed
@@ -538,10 +777,9 @@ class AccSettingsGUI:
     complete_sql_tbl_list = pd.DataFrame()
 
     # Function that is executed upon creation of SettingsGUI class
-    def __init__(self, class_obj=None, root=None, config=None):
+    def __init__(self, class_obj=None, root=None, config=None, sql_tables=None):
         self.header_text = 'Welcome to STC Upload Settings!\nSettings can be changed below.\nPress save when finished'
-
-        self.asql = global_objs['SQL']
+        self.complete_sql_tbl_list = sql_tables
 
         if config:
             self.config = config
@@ -561,13 +799,6 @@ class AccSettingsGUI:
         self.acc_tbl_name = StringVar()
         self.sql_tbl_name = StringVar()
         self.sql_tbl_truncate = IntVar()
-
-        # GUI Bind On Destruction event
-        self.main.bind('<Destroy>', self.gui_destroy)
-
-    # Function executes when GUI is destroyed
-    def gui_destroy(self, event):
-        self.asql.close()
 
     # Static function to fill textbox in GUI
     @staticmethod
@@ -589,24 +820,10 @@ class AccSettingsGUI:
             global_objs[setting_list].add_item(key=key, val=val, encrypt=encrypt)
             global_objs[setting_list].write_shelf()
 
-    # Function to validate whether a SQL table exists in SQL server
-    def grab_tables(self):
-        self.complete_sql_tbl_list = self.asql.query('''
-            SELECT
-                CONCAT(Table_Schema, '.', Table_Name) TBL_Name
-            FROM information_schema.tables''')
-
-    # Function to connect to SQL connection for this class
-    def sql_connect(self):
-        if self.asql.test_conn('alch'):
-            self.asql.connect('alch')
-            return True
-        else:
-            return False
-
-    # Function to close SQL connection for this class
-    def sql_close(self):
-        self.asql.close()
+    def check_tbl(self, table):
+        for t_data in self.complete_sql_tbl_list:
+            if t_data[0] == 'TABLE' and table.lower() == '{0}.{1}'.format(t_data[1][1].lower(), t_data[1][2].lower()):
+                return True
 
     # Function to build GUI for settings
     def build_gui(self, header=None, acc_table=None, acc_cols=None):
@@ -793,8 +1010,6 @@ class AccSettingsGUI:
     # Function to fill GUI textbox fields
     def fill_gui(self):
         disable_sql = True
-        self.asql.connect('alch')
-        self.grab_tables()
 
         if self.acc_table:
             self.acc_tbl_name.set(self.acc_table)
@@ -822,8 +1037,7 @@ class AccSettingsGUI:
                     for col in self.config[4]:
                         self.stcs_list_box.insert('end', col)
 
-                if len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
-                                                  == self.config[3].lower()]) > 0:
+                if self.check_tbl(self.config[3]):
                     self.populate_tbl_lists(True)
 
                 if self.config[5]:
@@ -851,17 +1065,25 @@ class AccSettingsGUI:
 
     def populate_tbl_lists(self, check_stcs_list=False):
         mytbl = self.sql_tbl_name.get().split('.')
-        myresults = self.asql.query('''
-            SELECT
-                Column_Name
-                
-            FROM INFORMATION_SCHEMA.COLUMNS
-    
-            WHERE
-                Table_Schema = '{0}'
-                    AND
-                Table_Name = '{1}'
-        '''.format(mytbl[0], mytbl[1]))
+        asql = global_objs['SQL']
+
+        try:
+            asql.connect('alch')
+            myresults = asql.execute('''
+                SELECT
+                    Column_Name
+                    
+                FROM INFORMATION_SCHEMA.COLUMNS
+        
+                WHERE
+                    Table_Schema = '{0}'
+                        AND
+                    Table_Name = '{1}'
+            '''.format(mytbl[0], mytbl[1]))
+        except:
+            myresults = pd.DataFrame()
+        finally:
+            asql.close_conn()
 
         if not myresults.empty:
             if self.stcs_list_box.size() > 0:
@@ -883,7 +1105,7 @@ class AccSettingsGUI:
 
             self.atc_list_box.select_set(self.stc_list_sel)
         else:
-            messagebox.showerror('No Columns Error!', 'Table has no columns in SQL Server')
+            messagebox.showerror('No Columns Error!', 'Table has no columns in SQL Server', parent=self.main)
 
     def check_tbl_name(self, event):
         if self.stc_list_box.size() > 0:
@@ -894,9 +1116,7 @@ class AccSettingsGUI:
             self.stcs_list_sel = 0
             self.stcs_list_box.delete(0, self.stcs_list_box.size() - 1)
 
-        if (self.config or self.acc_table) and self.sql_tbl_name.get()\
-                and len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
-                                                   == self.sql_tbl_name.get().lower()]) > 0:
+        if (self.config or self.acc_table) and self.sql_tbl_name.get() and self.check_tbl(self.sql_tbl_name.get()):
             self.stc_list_box.configure(state=NORMAL)
             self.stcs_list_box.configure(state=NORMAL)
             self.sql_right_button.configure(state=NORMAL)
@@ -1124,11 +1344,8 @@ class AccSettingsGUI:
                                      'SQL Table Select Column Listbox size != Access Table Select Listbox size',
                                      parent=self.main)
             else:
-                if len(self.complete_sql_tbl_list[self.complete_sql_tbl_list['TBL_Name'].str.lower()
-                                                  == self.sql_tbl_name.get().lower()]) < 1:
-                    messagebox.showerror('Invalid SQL TBL!',
-                                         'SQL TBL does not exist in sql server',
-                                         parent=self.main)
+                if self.check_tbl(self.sql_tbl_name.get()):
+                    messagebox.showerror('Invalid SQL TBL!', 'SQL TBL does not exist in sql server', parent=self.main)
                 else:
                     configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
                     if configs:
@@ -1181,22 +1398,25 @@ class AccSettingsGUI:
 
 
 class ChangeAccSettings:
-    save_button = None
+    change_button = None
+    upload_button = None
     list_box = None
     change_setting_obj = None
+    manual_upload_obj = None
     list_sel = 0
 
-    def __init__(self, root):
+    def __init__(self, root, sql_tables):
         self.main = Toplevel(root)
         self.main.iconbitmap(icon_path)
-        self.header_text = 'Welcome to Access Upload Settings!\nPlease choose a setting to modify.\nWhen finished press change setting'
+        self.header_text = 'Welcome to STC Upload Config Settings!\nPlease modify/manually upload config'
         self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
+        self.sql_tables = sql_tables
 
     # Function to build GUI for Extract Shelf
     def build_gui(self):
         # Set GUI Geometry and GUI Title
-        self.main.geometry('245x300+630+290')
-        self.main.title('Change Access Upload Settings')
+        self.main.geometry('375x285+630+290')
+        self.main.title('STC Upload Config Settings')
         self.main.resizable(False, False)
 
         # Set GUI Frames
@@ -1216,7 +1436,7 @@ class ChangeAccSettings:
         #     Access Setting List Populate
         xscrollbar = Scrollbar(list_frame, orient='horizontal')
         yscrollbar = Scrollbar(list_frame, orient='vertical')
-        self.list_box = Listbox(list_frame, selectmode=SINGLE, width=30,
+        self.list_box = Listbox(list_frame, selectmode=SINGLE, width=55,
                                 yscrollcommand=yscrollbar, xscrollcommand=xscrollbar)
         xscrollbar.config(command=self.list_box.xview)
         yscrollbar.config(command=self.list_box.yview)
@@ -1228,13 +1448,18 @@ class ChangeAccSettings:
         self.list_box.bind('<<ListboxSelect>>', self.list_select)
 
         # Apply Buttons to Button_Frame
-        #     Save Button
-        self.save_button = Button(self.main, text='Change Setting', width=15, command=self.change_setting)
-        self.save_button.pack(in_=button_frame, side=LEFT, padx=10, pady=5)
+        #     Change Button
+        self.change_button = Button(self.main, text='Change Setting', width=15, command=self.change_setting)
+        self.change_button.pack(in_=button_frame, side=LEFT, padx=5, pady=5)
 
         #     Cancel Button
         cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
-        cancel_button.pack(in_=button_frame, side=RIGHT, padx=10, pady=5)
+        cancel_button.pack(in_=button_frame, side=RIGHT, padx=5, pady=5)
+
+        # Apply Buttons to Button_Frame
+        #     Upload Button
+        self.upload_button = Button(self.main, text='Manual Upload', width=15, command=self.manual_upload)
+        self.upload_button.pack(in_=button_frame, side=TOP, padx=5, pady=5)
 
         self.load_gui_fields()
 
@@ -1247,7 +1472,8 @@ class ChangeAccSettings:
                 self.list_box.select_set(set_id)
         else:
             self.list_box.configure(state=DISABLED)
-            self.save_button.configure(state=DISABLED)
+            self.upload_button.configure(state=DISABLED)
+            self.change_button.configure(state=DISABLED)
 
     def list_down(self, event):
         if self.list_sel < self.list_box.size() - 1:
@@ -1268,18 +1494,34 @@ class ChangeAccSettings:
                 and -1 < self.list_sel < self.list_box.size() - 1:
             self.list_sel = self.list_box.curselection()[0]
 
+    def manual_upload(self):
+        if self.list_box.curselection() and self.configs:
+            if self.manual_upload_obj:
+                self.manual_upload_obj.cancel()
+                self.manual_upload_obj = None
+
+            self.manual_upload_obj = ManualUploadGUI(self.main, self.list_box.get(self.list_box.curselection()))
+
+            if self.manual_upload_obj:
+                self.manual_upload_obj.build_gui()
+                self.manual_upload_obj = None
+
     def change_setting(self):
         if self.list_box.curselection() and self.configs:
             if self.change_setting_obj:
                 self.change_setting_obj.cancel()
+                self.change_setting_obj = None
 
             self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
 
             for config in self.configs:
                 if config[0] == self.list_box.get(self.list_box.curselection()):
-                    self.change_setting_obj = AccSettingsGUI(self, self.main, config)
-                    self.change_setting_obj.build_gui()
+                    self.change_setting_obj = AccSettingsGUI(self, self.main, config, self.sql_tables)
                     break
+
+            if self.change_setting_obj:
+                self.change_setting_obj.build_gui()
+                self.change_setting_obj = None
 
             if self.list_box.size() > 0:
                 self.configs = global_objs['Local_Settings'].grab_item('Accdb_Configs')
@@ -1292,11 +1534,166 @@ class ChangeAccSettings:
             self.main.destroy()
 
 
+class ManualUploadGUI:
+    list_box = None
+    upload_button = None
+    list_sel = -1
+
+    def __init__(self, root=None, table=None):
+        self.main = Toplevel(root)
+        self.main.iconbitmap(icon_path)
+        self.header_text = 'Welcome to Manual Upload Config!\nPlease choose a date to upload'
+        self.table = table
+        self.accdb_paths = []
+
+    # Function to build GUI for Manual Upload
+    def build_gui(self):
+        # Set GUI Geometry and GUI Title
+        self.main.geometry('255x285+630+290')
+        self.main.title('STC Manual Upload Config')
+        self.main.resizable(False, False)
+
+        # Set GUI Frames
+        header_frame = Frame(self.main)
+        list_frame = LabelFrame(self.main, text='Upload Date List', width=444, height=140)
+        button_frame = Frame(self.main)
+
+        # Apply Frames into GUI
+        header_frame.pack()
+        list_frame.pack(fill="both")
+        button_frame.pack(fill="both")
+
+        # Apply Header text to Header_Frame that describes purpose of GUI
+        header = Message(self.main, text=self.header_text, width=375, justify=CENTER)
+        header.pack(in_=header_frame)
+
+        #     Upload Date List Box Widget
+        xscrollbar = Scrollbar(list_frame, orient='horizontal')
+        yscrollbar = Scrollbar(list_frame, orient='vertical')
+        self.list_box = Listbox(list_frame, selectmode=SINGLE, width=35,
+                                yscrollcommand=yscrollbar, xscrollcommand=xscrollbar)
+        xscrollbar.config(command=self.list_box.xview)
+        yscrollbar.config(command=self.list_box.yview)
+        self.list_box.grid(row=0, column=3, padx=8, pady=5)
+        xscrollbar.grid(row=1, column=3, sticky=W + E)
+        yscrollbar.grid(row=0, column=4, sticky=N + S)
+        self.list_box.bind("<Down>", self.list_down)
+        self.list_box.bind("<Up>", self.list_up)
+        self.list_box.bind('<<ListboxSelect>>', self.list_select)
+
+        # Apply Buttons to Button_Frame
+        #     Upload Button
+        self.upload_button = Button(self.main, text='Upload Accdb', width=15, command=self.manual_upload)
+        self.upload_button.pack(in_=button_frame, side=LEFT, padx=5, pady=5)
+
+        #     Cancel Button
+        cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        cancel_button.pack(in_=button_frame, side=RIGHT, padx=5, pady=5)
+
+        self.load_gui_fields()
+
+    def load_gui_fields(self):
+        self.grab_accdbs()
+
+        if len(self.accdb_paths) > 0:
+            for apath in self.accdb_paths:
+                self.list_box.insert('end', os.path.basename(os.path.dirname(apath)))
+
+            self.list_box.select_set(0)
+        else:
+            self.list_box.configure(state=DISABLED)
+            self.upload_button.configure(state=DISABLED)
+
+    def list_down(self, event):
+        if self.list_sel < self.list_box.size() - 1:
+            self.list_box.select_clear(self.list_sel)
+            self.list_sel += 1
+            self.list_box.select_set(self.list_sel)
+
+    # Function adjusts selection of item when user presses up key (ATCS List)
+    def list_up(self, event):
+        if self.list_sel > 0:
+            self.list_box.select_clear(self.list_sel)
+            self.list_sel -= 1
+            self.list_box.select_set(self.list_sel)
+
+    # Function adjusts selection of item when user clicks item (STC List)
+    def list_select(self, event):
+        if self.list_box and self.list_box.curselection() \
+                and -1 < self.list_sel < self.list_box.size() - 1:
+            self.list_sel = self.list_box.curselection()[0]
+
+    def grab_accdbs(self):
+        for filename in os.listdir(ProcessedDir):
+            file_path = os.path.join(ProcessedDir, filename)
+
+            if os.path.isdir(file_path):
+                self.accdb_paths += list(pl.Path(file_path).glob('*.accdb')) +\
+                                    list(pl.Path(file_path).glob('*.mdb'))
+
+        if len(self.accdb_paths) > 0:
+            rem_list = []
+            trim_date = datetime.now()
+            trim_date = (trim_date - relativedelta.relativedelta(months=3)).__format__("%Y%m%d")
+
+            for file_path in self.accdb_paths:
+                if os.path.basename(os.path.dirname(file_path)) < trim_date:
+                    rem_list.append(file_path)
+                else:
+                    fnd_tbl = False
+                    asql = SQLHandle(logobj=global_objs['Event_Log'], accdb_file=file_path)
+
+                    try:
+                        asql.connect('accdb', )
+                        tables = asql.tables()
+
+                        for table in tables:
+                            if table[0] == 'TABLE' and table[1][2].lower() == self.table.lower():
+                                fnd_tbl = True
+                                break
+
+                        if not fnd_tbl:
+                            rem_list.append(file_path)
+                    finally:
+                        asql.close_conn()
+                        del asql
+
+            if len(rem_list) > 0:
+                for rem in rem_list:
+                    self.accdb_paths.remove(rem)
+
+    def manual_upload(self):
+        if self.list_box.curselection():
+            batch = self.list_box.get(self.list_box.curselection())
+
+            for apath in self.accdb_paths:
+                if batch == os.path.basename(os.path.dirname(apath)):
+                    global_objs['Event_Log'].log_mode(True, self.main)
+                    global_objs['Event_Log'].write_log('Validating table [{0}]'.format(self.table))
+                    myobj = AccdbHandle(apath, batch)
+
+                    if myobj.validate(self.table) and myobj.process(self.table):
+                        myobj.apply_features(self.table)
+                        stats = myobj.get_success_stats(self.table)
+                        global_objs['Event_Log'].write_log('Manual Upload [{0}] => [{1}] {2} Records uploaded'.format(
+                                                               stats[0], stats[1], stats[2]))
+                        messagebox.showinfo('Manual Upload Success', '[{0}] => [{1}] {2} Records uploaded'.format(
+                            stats[0], stats[1], stats[2]
+                        ), parent=global_objs['Event_Log'].log_gui_root())
+                    else:
+                        messagebox.showerror('Manual Upload Failed', 'Wasnt able to validate and process table',
+                                             parent=global_objs['Event_Log'].log_gui_root())
+
+                    global_objs['Event_Log'].log_mode(False)
+                    break
+
+    # Function to destroy GUI when Cancel button is pressed
+    def cancel(self):
+        if self.main:
+            self.main.destroy()
+
+
 # Main loop routine to create GUI Settings
 if __name__ == '__main__':
     obj = SettingsGUI()
-
-    try:
-        obj.build_gui()
-    finally:
-        obj.sql_close()
+    obj.build_gui()
