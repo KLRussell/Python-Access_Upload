@@ -178,35 +178,6 @@ class AccdbHandle:
                 Source_File = 'Updated Records {1}'
         '''.format(self.config[3], self.batch)).empty
 
-    '''
-    def switch_config(self):
-        if self.configs and self.config:
-            for config in self.configs:
-                if config == self.config:
-                    self.configs.remove(config)
-                    break
-
-            self.configs.append(self.config)
-            global_objs['Local_Settings'].del_item('Accdb_Configs')
-            global_objs['Local_Settings'].add_item('Accdb_Configs', self.configs)
-
-    def config_gui(self, table, header_text, insert=True):
-        if insert:
-            obj = AccSettingsGUI()
-            obj.build_gui(header_text, table, self.accdb_cols)
-            self.get_config(table)
-        else:
-            old_config = self.config
-            self.switch_config()
-            obj = AccSettingsGUI(config=old_config)
-
-            obj.build_gui(header_text)
-            self.get_config(table)
-
-            if old_config == self.config:
-                self.config = None
-    '''
-
     def process(self, table):
         self.log.write_log('Reading data from accdb table [%s]' % table)
 
@@ -290,6 +261,15 @@ class SettingsGUI:
         self.fpass_obj = global_objs['Local_Settings'].grab_item('FTP Password')
         self.epass_obj = global_objs['Settings'].grab_item('Email_Pass')
         self.asql = global_objs['SQL']
+
+        try:
+            self.asql.connect('alch')
+            self.sql_tables = self.asql.tables()
+        except:
+            self.sql_tables = None
+        finally:
+            self.asql.close_conn()
+
         self.main = Tk()
         self.main.iconbitmap(icon_path)
 
@@ -306,14 +286,6 @@ class SettingsGUI:
         self.email_from = StringVar()
         self.email_to = StringVar()
         self.email_cc = StringVar()
-
-        try:
-            self.asql.connect('alch')
-            self.sql_tables = self.asql.tables()
-        except:
-            self.sql_tables = None
-        finally:
-            self.asql.close_conn()
 
     # Static function to fill textbox in GUI
     @staticmethod
@@ -474,8 +446,7 @@ class SettingsGUI:
         # Show GUI Dialog
         self.main.mainloop()
 
-        # Function to fill GUI textbox fields
-
+    # Function to fill GUI textbox fields
     def fill_gui(self):
         self.fill_textbox('Settings', self.server, 'Server')
         self.fill_textbox('Settings', self.database, 'Database')
@@ -1002,10 +973,6 @@ class AccSettingsGUI:
 
         # Fill Textboxes with settings
         self.fill_gui()
-
-        if not self.class_obj:
-            # Show GUI Dialog
-            self.main.mainloop()
 
     # Function to fill GUI textbox fields
     def fill_gui(self):
@@ -1749,9 +1716,8 @@ class ConfigReviewGUI:
         cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
         cancel_button.pack(in_=button_frame, side=RIGHT, padx=5, pady=5)
 
-        self.main.mainloop()
-
         self.load_gui_fields(False)
+        self.main.mainloop()
 
     def load_gui_fields(self, refresh_config=True):
         if refresh_config:
