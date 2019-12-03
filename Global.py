@@ -425,10 +425,21 @@ class LogHandle:
     def log_mode(self, new_console=False, root=None):
         if self.console and hasattr(self.console, 'destroy'):
             self.root.destroy()
-            self.console = None
             self.root = None
+            self.console = None
 
-        self.root = root
+        if new_console:
+            if root:
+                self.root = Toplevel(root)
+            else:
+                self.root = Tk()
+
+            self.console = FakeConsole(self.root)
+            self.console.pack()
+
+            if not root:
+                threading.Thread(target=self.root.mainloop).start()
+
         self.new_console = new_console
 
     def log_gui_root(self):
@@ -444,18 +455,7 @@ class LogHandle:
         logging.basicConfig(filename=filepath,
                             level=logging.DEBUG, format=' %(asctime)s - %(levelname)s - %(message)s')
 
-        if self.new_console:
-            if not self.console:
-                if self.root:
-                    self.root = Toplevel(self.root)
-                    self.console = FakeConsole(self.root)
-                    threading.Thread(target=self.console.pack).start()
-                else:
-                    self.root = Tk()
-                    self.console = FakeConsole(self.root)
-                    self.console.pack()
-                    threading.Thread(target=self.root.mainloop).start()
-
+        if self.new_console and hasattr(self.console, 'show'):
             self.console.show(message)
         else:
             print('{0} - {1} - {2}'.format(datetime.datetime.now(), action.upper(), message))
