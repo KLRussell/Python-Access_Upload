@@ -80,7 +80,7 @@ class AccdbHandle:
         else:
             config_review = []
 
-        config_review.append([self.file, table, self.accdb_cols, header, insert])
+        config_review.append([self.file, table, self.accdb_cols, header, insert, self.config])
         self.settings.add_item('Config_Review', config_review)
         self.settings.write_shelf()
 
@@ -1693,7 +1693,128 @@ class ManualUploadGUI:
             self.main.destroy()
 
 
+class ConfigReviewGUI:
+    list_box = None
+    create_config_button = None
+    settings_obj = None
+    list_sel = -1
+
+    def __init__(self, config_review=None):
+        self.main = Tk()
+        self.main.iconbitmap(icon_path)
+        self.header_text = 'Welcome to Config Review!\nPlease review or create a new config below:'
+        self.config_review = config_review
+
+    # Function to build GUI for Manual Upload
+    def build_gui(self):
+        # Set GUI Geometry and GUI Title
+        self.main.geometry('255x285+630+290')
+        self.main.title('Config Review')
+        self.main.resizable(False, False)
+
+        # Set GUI Frames
+        header_frame = Frame(self.main)
+        list_frame = LabelFrame(self.main, text='Config Review List', width=444, height=140)
+        button_frame = Frame(self.main)
+
+        # Apply Frames into GUI
+        header_frame.pack()
+        list_frame.pack(fill="both")
+        button_frame.pack(fill="both")
+
+        # Apply Header text to Header_Frame that describes purpose of GUI
+        header = Message(self.main, text=self.header_text, width=375, justify=CENTER)
+        header.pack(in_=header_frame)
+
+        #     Upload Date List Box Widget
+        xscrollbar = Scrollbar(list_frame, orient='horizontal')
+        yscrollbar = Scrollbar(list_frame, orient='vertical')
+        self.list_box = Listbox(list_frame, selectmode=SINGLE, width=35,
+                                yscrollcommand=yscrollbar, xscrollcommand=xscrollbar)
+        xscrollbar.config(command=self.list_box.xview)
+        yscrollbar.config(command=self.list_box.yview)
+        self.list_box.grid(row=0, column=3, padx=8, pady=5)
+        xscrollbar.grid(row=1, column=3, sticky=W + E)
+        yscrollbar.grid(row=0, column=4, sticky=N + S)
+        self.list_box.bind("<Down>", self.list_down)
+        self.list_box.bind("<Up>", self.list_up)
+        self.list_box.bind('<<ListboxSelect>>', self.list_select)
+
+        # Apply Buttons to Button_Frame
+        #     Create Config Button
+        self.create_config_button = Button(self.main, text='Upload Accdb', width=15, command=self.create_config)
+        self.create_config_button.pack(in_=button_frame, side=LEFT, padx=5, pady=5)
+
+        #     Cancel Button
+        cancel_button = Button(self.main, text='Cancel', width=15, command=self.cancel)
+        cancel_button.pack(in_=button_frame, side=RIGHT, padx=5, pady=5)
+
+        self.main.mainloop()
+
+        self.load_gui_fields(False)
+
+    def load_gui_fields(self, refresh_config=True):
+        if refresh_config:
+            global_objs['Local_Settings'].read_shelf()
+            self.config_review = global_objs['Local_Settings'].grab_item('Config_Review')
+
+        if len(self.config_review) > 0:
+            for config in self.config_review:
+                self.list_box.insert('end', config[1])
+
+            self.list_box.select_set(0)
+        else:
+            self.list_box.configure(state=DISABLED)
+            self.create_config_button.configure(state=DISABLED)
+
+    def list_down(self, event):
+        if self.list_sel < self.list_box.size() - 1:
+            self.list_box.select_clear(self.list_sel)
+            self.list_sel += 1
+            self.list_box.select_set(self.list_sel)
+
+    # Function adjusts selection of item when user presses up key (ATCS List)
+    def list_up(self, event):
+        if self.list_sel > 0:
+            self.list_box.select_clear(self.list_sel)
+            self.list_sel -= 1
+            self.list_box.select_set(self.list_sel)
+
+    # Function adjusts selection of item when user clicks item (STC List)
+    def list_select(self, event):
+        if self.list_box and self.list_box.curselection() \
+                and -1 < self.list_sel < self.list_box.size() - 1:
+            self.list_sel = self.list_box.curselection()[0]
+
+    def create_config(self):
+        if self.list_box.curselection():
+            config_name = self.list_box.get(self.list_box.curselection())
+
+            for config in self.config_review:
+                if config[1] == config_name:
+                    if config[4]:
+                        acc_obj = AccSettingsGUI(class_obj=self, root=self.main)
+                        acc_obj.build_gui(config[3], config[1], config[2])
+                    else:
+                        acc_obj = AccSettingsGUI(class_obj=self, root=self.main, config=config[5])
+                        acc_obj.build_gui(config[3])
+
+                    self.load_gui_fields()
+                    break
+
+    # Function to destroy GUI when Cancel button is pressed
+    def cancel(self):
+        if self.main:
+            self.main.destroy()
+
+
 # Main loop routine to create GUI Settings
 if __name__ == '__main__':
+    cr = global_objs['Local_Settings'].grab_item('Config_Review')
+
+    if cr:
+        obj = ConfigReviewGUI()
+        obj.build_gui()
+
     obj = SettingsGUI()
     obj.build_gui()
